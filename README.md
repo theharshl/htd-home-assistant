@@ -73,3 +73,4 @@ htd:
 - https://github.com/steve28/mca66
 - http://www.brandonclaps.com/?p=173
 - https://github.com/lounsbrough/htd-mca-66-api
+- **Special thanks to [kingfetty](https://github.com/kingfetty/python-htd)** — whose foundational work on full Lync support (zone/source naming, DND, device discovery, and all-zone queries) made this integration significantly more capable.

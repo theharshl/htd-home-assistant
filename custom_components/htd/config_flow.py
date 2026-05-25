@@ -148,6 +148,26 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
+    async def async_step_zone_names(self, user_input=None):
+        zone_count = self._model_info["zones"]
+
+        if user_input is not None:
+            self._zone_name_overrides = {
+                str(i): name
+                for i in range(1, zone_count + 1)
+                if (name := (user_input.get(f"zone_{i}_name") or "").strip())
+            }
+            return await self.async_step_source_names()
+
+        return self.async_show_form(
+            step_id='zone_names',
+            data_schema=vol.Schema({
+                vol.Optional(f"zone_{i}_name", default=""): cv.string
+                for i in range(1, zone_count + 1)
+            })
+        )
+
+
 class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:

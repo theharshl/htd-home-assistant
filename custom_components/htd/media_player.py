@@ -201,13 +201,9 @@ class HtdDevice(MediaPlayerEntity):
 
     def _resolve_source_name(self, source: int) -> str:
         if self.config_entry is None:
-            return self.client.get_source_name(source) or f"Source {source}"
+            return self.client.get_source_name(source)
         overrides = self.config_entry.data.get(CONF_SOURCE_NAMES, {})
-        return (
-            overrides.get(str(source))
-            or self.client.get_source_name(source)
-            or f"Source {source}"
-        )
+        return overrides.get(str(source)) or self.client.get_source_name(source)
 
     @property
     def source(self) -> str:

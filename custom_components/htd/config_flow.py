@@ -199,25 +199,90 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
+    _new_title: str = None
+    _connection_data: dict = None
+    _zone_name_overrides: dict = None
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
-            new_title = user_input.get(CONF_DEVICE_NAME, self.config_entry.title)
-            options = {
-                **self.config_entry.data,
-                **user_input
-            }
-
-            self.hass.config_entries.async_update_entry(
-                self.config_entry,
-                data=options,
-                title=new_title,
-            )
-
-            return self.async_create_entry(title=new_title, data={})
+            self._new_title = user_input.get(CONF_DEVICE_NAME, self.config_entry.title)
+            self._connection_data = user_input
+            return await self.async_step_zone_names()
 
         return self.async_show_form(
             step_id='init',
             data_schema=get_connection_settings_schema(self.config_entry)
+        )
+
+    async def async_step_zone_names(self, user_input: dict[str, Any] | None = None):
+        client = self.config_entry.runtime_data
+        zone_count = client.get_zone_count()
+
+        if user_input is not None:
+            self._zone_name_overrides = {
+                str(i): name
+                for i in range(1, zone_count + 1)
+                if (name := (user_input.get(f"zone_{i}_name") or "").strip())
+            }
+            return await self.async_step_source_names()
+
+        existing_zone_overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {})
+        placeholders = {
+            f"zone_{i}_controller": client.get_zone_name(i) or f"Zone {i}"
+            for i in range(1, zone_count + 1)
+        }
+
+        return self.async_show_form(
+            step_id='zone_names',
+            data_schema=vol.Schema({
+                vol.Optional(
+                    f"zone_{i}_name",
+                    default=existing_zone_overrides.get(str(i), "")
+                ): cv.string
+                for i in range(1, zone_count + 1)
+            }),
+            description_placeholders=placeholders
+        )
+
+    async def async_step_source_names(self, user_input: dict[str, Any] | None = None):
+        client = self.config_entry.runtime_data
+        source_count = client.get_source_count()
+
+        if user_input is not None:
+            source_name_overrides = {
+                str(i): name
+                for i in range(1, source_count + 1)
+                if (name := (user_input.get(f"source_{i}_name") or "").strip())
+            }
+            data = {
+                **self.config_entry.data,
+                **self._connection_data,
+                CONF_ZONE_NAMES: self._zone_name_overrides or {},
+                CONF_SOURCE_NAMES: source_name_overrides,
+            }
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data=data,
+                title=self._new_title,
+            )
+            return self.async_create_entry(title=self._new_title, data={})
+
+        existing_source_overrides = self.config_entry.data.get(CONF_SOURCE_NAMES, {})
+        placeholders = {
+            f"source_{i}_controller": client.get_source_name(i) or f"Source {i}"
+            for i in range(1, source_count + 1)
+        }
+
+        return self.async_show_form(
+            step_id='source_names',
+            data_schema=vol.Schema({
+                vol.Optional(
+                    f"source_{i}_name",
+                    default=existing_source_overrides.get(str(i), "")
+                ): cv.string
+                for i in range(1, source_count + 1)
+            }),
+            description_placeholders=placeholders
         )
 
 

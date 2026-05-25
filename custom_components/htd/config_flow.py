@@ -135,6 +135,8 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
 
         network_address = (self.host, self.port)
         model_info = await async_get_model_info(network_address=network_address)
+        if model_info is None:
+            return self.async_abort(reason="unknown_model")
         self._model_info = model_info
 
         return self.async_show_form(

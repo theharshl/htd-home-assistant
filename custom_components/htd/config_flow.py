@@ -166,7 +166,8 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Optional(f"zone_{i}_name", default=""): cv.string
                 for i in range(1, zone_count + 1)
-            })
+            }),
+            last_step=False
         )
 
     async def async_step_source_names(self, user_input=None):
@@ -213,7 +214,8 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
 
         return self.async_show_form(
             step_id='init',
-            data_schema=get_connection_settings_schema(self.config_entry)
+            data_schema=get_connection_settings_schema(self.config_entry),
+            last_step=False
         )
 
     async def async_step_zone_names(self, user_input: dict[str, Any] | None = None):
@@ -243,7 +245,8 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
                 ): cv.string
                 for i in range(1, zone_count + 1)
             }),
-            description_placeholders=placeholders
+            description_placeholders=placeholders,
+            last_step=False
         )
 
     async def async_step_source_names(self, user_input: dict[str, Any] | None = None):

@@ -21,7 +21,7 @@
       },
       "zone_names": {
         "title": "Zone Names",
-        "description": "Leave a field blank to use the controller's default name for that zone.",
+        "description": "Step 3 of 4 — Leave a field blank to use the controller's default name for that zone.",
         "data": {
           "zone_1_name": "Zone 1", "zone_2_name": "Zone 2", "zone_3_name": "Zone 3",
           "zone_4_name": "Zone 4", "zone_5_name": "Zone 5", "zone_6_name": "Zone 6",
@@ -31,7 +31,7 @@
       },
       "source_names": {
         "title": "Source Names",
-        "description": "Leave a field blank to use the controller's default name for that source.",
+        "description": "Step 4 of 4 — Leave a field blank to use the controller's default name for that source.",
         "data": {
           "source_1_name": "Source 1", "source_2_name": "Source 2", "source_3_name": "Source 3",
           "source_4_name": "Source 4", "source_5_name": "Source 5", "source_6_name": "Source 6",
@@ -52,6 +52,7 @@
     "step": {
       "init": {
         "title": "Configure Device",
+        "description": "Step 1 of 3",
         "data": {
           "host": "Host name or IP Address",
           "port": "Port",
@@ -60,7 +61,7 @@
       },
       "zone_names": {
         "title": "Zone Names",
-        "description": "Leave a field blank to use the controller's name. Clear an override to revert.",
+        "description": "Step 2 of 3 — Leave a field blank to use the controller's name. Clear an override to revert.",
         "data": {
           "zone_1_name": "Zone 1", "zone_2_name": "Zone 2", "zone_3_name": "Zone 3",
           "zone_4_name": "Zone 4", "zone_5_name": "Zone 5", "zone_6_name": "Zone 6",
@@ -84,7 +85,7 @@
       },
       "source_names": {
         "title": "Source Names",
-        "description": "Leave a field blank to use the controller's name. Clear an override to revert.",
+        "description": "Step 3 of 3 — Leave a field blank to use the controller's name. Clear an override to revert.",
         "data": {
           "source_1_name": "Source 1", "source_2_name": "Source 2", "source_3_name": "Source 3",
           "source_4_name": "Source 4", "source_5_name": "Source 5", "source_6_name": "Source 6",

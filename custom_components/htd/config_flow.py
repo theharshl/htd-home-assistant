@@ -167,6 +167,36 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             })
         )
 
+    async def async_step_source_names(self, user_input=None):
+        source_count = self._model_info["sources"]
+
+        if user_input is not None:
+            source_name_overrides = {
+                str(i): name
+                for i in range(1, source_count + 1)
+                if (name := (user_input.get(f"source_{i}_name") or "").strip())
+            }
+            return self.async_create_entry(
+                title=self._device_name,
+                data={
+                    CONF_HOST: self.host,
+                    CONF_PORT: self.port,
+                    CONF_UNIQUE_ID: self.unique_id,
+                    CONF_DEVICE_NAME: self._device_name,
+                    CONF_ZONE_NAMES: self._zone_name_overrides or {},
+                    CONF_SOURCE_NAMES: source_name_overrides,
+                },
+                options={}
+            )
+
+        return self.async_show_form(
+            step_id='source_names',
+            data_schema=vol.Schema({
+                vol.Optional(f"source_{i}_name", default=""): cv.string
+                for i in range(1, source_count + 1)
+            })
+        )
+
 
 class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
     async def async_step_init(self, user_input: dict[str, Any] | None = None):

@@ -4,10 +4,21 @@
 
 This integration adds support for the Home Theater Direct line of Whole House Audio to Home Assistant.
 
-Currently, it supports the following models.
-- MC/MCA-66
-- Lync 6
-- Lync 12
+## Supported Models
+
+| Model | Zones | Sources |
+|---|---|---|
+| MC/MCA-66 | 6 | 6 |
+| Lync 6 | 6 | 12 |
+| Lync 12 | 12 | 19 |
+
+## Features
+
+- Auto-discovery via DHCP (MAC prefix `A44F29*` / `A64F29*`)
+- Per-zone power, volume, mute, and source control
+- Source names read automatically from the controller on connect (Lync: uses your zone-configured names; MCA: where supported)
+- Device rename via the integration's settings — no need to delete and re-add
+- Serial (USB) or network connection
 
 ## Installation steps
 
@@ -17,7 +28,7 @@ Easiest installation is via [HACS](https://hacs.xyz/):
 
 Please click this button below to install the integration:
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=hikirsch&repository=htd-home-assistant&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=theharshl&repository=htd-home-assistant&category=integration)
 
 After you add the repository for the integration, you will then be able to install it into Home Assistant.
 

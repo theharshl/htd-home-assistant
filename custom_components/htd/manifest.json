@@ -2,7 +2,7 @@
   "domain": "htd",
   "name": "Home Theater Direct",
   "codeowners": [
-    "@hikirsch"
+    "@theharshl"
   ],
   "config_flow": true,
   "dhcp": [
@@ -13,12 +13,12 @@
       "macaddress": "A64F29*"
     }
   ],
-  "documentation": "https://www.github.com/hikirsch/htd-home-assistant",
+  "documentation": "https://github.com/theharshl/htd-home-assistant",
   "integration_type": "hub",
   "iot_class": "local_push",
-  "issue_tracker": "https://www.github.com/hikirsch/htd-home-assistant/issues",
+  "issue_tracker": "https://github.com/theharshl/htd-home-assistant/issues",
   "requirements": [
-    "htd_client==0.0.25"
+    "htd-client @ git+https://github.com/theharshl/python-htd@v0.1.0"
   ],
-  "version": "2.0.0-rc.5"
+  "version": "0.0.26"
 }

@@ -9,11 +9,37 @@
           "port": "Port"
         }
       },
-      "options": {
-        "title": "Home Theater Direct",
-        "description": "Choose a name for this device.",
+      "device": {
+        "title": "Device Setup",
         "data": {
-          "device_name": "Device name"
+          "device_name": "Device name",
+          "customize_names": "Customize zone and source names now"
+        },
+        "data_description": {
+          "customize_names": "You can update names at any time via Configure."
+        }
+      },
+      "zone_names": {
+        "title": "Zone Names",
+        "description": "Leave a field blank to use the controller's default name for that zone.",
+        "data": {
+          "zone_1_name": "Zone 1", "zone_2_name": "Zone 2", "zone_3_name": "Zone 3",
+          "zone_4_name": "Zone 4", "zone_5_name": "Zone 5", "zone_6_name": "Zone 6",
+          "zone_7_name": "Zone 7", "zone_8_name": "Zone 8", "zone_9_name": "Zone 9",
+          "zone_10_name": "Zone 10", "zone_11_name": "Zone 11", "zone_12_name": "Zone 12"
+        }
+      },
+      "source_names": {
+        "title": "Source Names",
+        "description": "Leave a field blank to use the controller's default name for that source.",
+        "data": {
+          "source_1_name": "Source 1", "source_2_name": "Source 2", "source_3_name": "Source 3",
+          "source_4_name": "Source 4", "source_5_name": "Source 5", "source_6_name": "Source 6",
+          "source_7_name": "Source 7", "source_8_name": "Source 8", "source_9_name": "Source 9",
+          "source_10_name": "Source 10", "source_11_name": "Source 11", "source_12_name": "Source 12",
+          "source_13_name": "Source 13", "source_14_name": "Source 14", "source_15_name": "Source 15",
+          "source_16_name": "Source 16", "source_17_name": "Source 17", "source_18_name": "Source 18",
+          "source_19_name": "Source 19"
         }
       }
     },
@@ -30,6 +56,64 @@
           "host": "Host name or IP Address",
           "port": "Port",
           "device_name": "Device name"
+        }
+      },
+      "zone_names": {
+        "title": "Zone Names",
+        "description": "Leave a field blank to use the controller's name. Clear an override to revert.",
+        "data": {
+          "zone_1_name": "Zone 1", "zone_2_name": "Zone 2", "zone_3_name": "Zone 3",
+          "zone_4_name": "Zone 4", "zone_5_name": "Zone 5", "zone_6_name": "Zone 6",
+          "zone_7_name": "Zone 7", "zone_8_name": "Zone 8", "zone_9_name": "Zone 9",
+          "zone_10_name": "Zone 10", "zone_11_name": "Zone 11", "zone_12_name": "Zone 12"
+        },
+        "data_description": {
+          "zone_1_name": "Controller: {zone_1_controller}",
+          "zone_2_name": "Controller: {zone_2_controller}",
+          "zone_3_name": "Controller: {zone_3_controller}",
+          "zone_4_name": "Controller: {zone_4_controller}",
+          "zone_5_name": "Controller: {zone_5_controller}",
+          "zone_6_name": "Controller: {zone_6_controller}",
+          "zone_7_name": "Controller: {zone_7_controller}",
+          "zone_8_name": "Controller: {zone_8_controller}",
+          "zone_9_name": "Controller: {zone_9_controller}",
+          "zone_10_name": "Controller: {zone_10_controller}",
+          "zone_11_name": "Controller: {zone_11_controller}",
+          "zone_12_name": "Controller: {zone_12_controller}"
+        }
+      },
+      "source_names": {
+        "title": "Source Names",
+        "description": "Leave a field blank to use the controller's name. Clear an override to revert.",
+        "data": {
+          "source_1_name": "Source 1", "source_2_name": "Source 2", "source_3_name": "Source 3",
+          "source_4_name": "Source 4", "source_5_name": "Source 5", "source_6_name": "Source 6",
+          "source_7_name": "Source 7", "source_8_name": "Source 8", "source_9_name": "Source 9",
+          "source_10_name": "Source 10", "source_11_name": "Source 11", "source_12_name": "Source 12",
+          "source_13_name": "Source 13", "source_14_name": "Source 14", "source_15_name": "Source 15",
+          "source_16_name": "Source 16", "source_17_name": "Source 17", "source_18_name": "Source 18",
+          "source_19_name": "Source 19"
+        },
+        "data_description": {
+          "source_1_name": "Controller: {source_1_controller}",
+          "source_2_name": "Controller: {source_2_controller}",
+          "source_3_name": "Controller: {source_3_controller}",
+          "source_4_name": "Controller: {source_4_controller}",
+          "source_5_name": "Controller: {source_5_controller}",
+          "source_6_name": "Controller: {source_6_controller}",
+          "source_7_name": "Controller: {source_7_controller}",
+          "source_8_name": "Controller: {source_8_controller}",
+          "source_9_name": "Controller: {source_9_controller}",
+          "source_10_name": "Controller: {source_10_controller}",
+          "source_11_name": "Controller: {source_11_controller}",
+          "source_12_name": "Controller: {source_12_controller}",
+          "source_13_name": "Controller: {source_13_controller}",
+          "source_14_name": "Controller: {source_14_controller}",
+          "source_15_name": "Controller: {source_15_controller}",
+          "source_16_name": "Controller: {source_16_controller}",
+          "source_17_name": "Controller: {source_17_controller}",
+          "source_18_name": "Controller: {source_18_controller}",
+          "source_19_name": "Controller: {source_19_controller}"
         }
       }
     }

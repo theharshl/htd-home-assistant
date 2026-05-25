@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from htd_client import BaseClient, HtdConstants, HtdMcaClient
 from htd_client.models import ZoneDetail
 
-from .const import DOMAIN, CONF_DEVICE_NAME
+from .const import DOMAIN, CONF_DEVICE_NAME, CONF_ZONE_NAMES, CONF_SOURCE_NAMES
 
 
 def make_alphanumeric(input_string):
@@ -87,7 +87,8 @@ async def async_setup_entry(_: HomeAssistant, config_entry: HtdClientConfigEntry
             device_name,
             zone,
             sources,
-            client
+            client,
+            config_entry
         )
 
         entities.append(entity)
@@ -112,13 +113,15 @@ class HtdDevice(MediaPlayerEntity):
         device_name,
         zone,
         sources,
-        client
+        client,
+        config_entry=None
     ):
         self.unique_id = f"{unique_id}_{zone:02}"
         self.device_name = device_name
         self.zone = zone
         self.client = client
         self.sources = sources
+        self.config_entry = config_entry
         zone_fmt = f"02" if self.client.model["zones"] > 10 else "01"
         self.entity_id = get_media_player_entity_id(device_name, zone, zone_fmt)
 
@@ -131,8 +134,15 @@ class HtdDevice(MediaPlayerEntity):
         return SUPPORT_HTD
 
     @property
-    def name(self):
-        return f"Zone {self.zone} ({self.device_name})"
+    def name(self) -> str:
+        if self.config_entry is None:
+            return f"Zone {self.zone} ({self.device_name})"
+        overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {})
+        return (
+            overrides.get(str(self.zone))
+            or self.client.get_zone_name(self.zone)
+            or f"Zone {self.zone}"
+        )
 
     def update(self):
         self.zone_info = self.client.get_zone(self.zone)
@@ -189,13 +199,19 @@ class HtdDevice(MediaPlayerEntity):
         else:
             await self.client.async_unmute(self.zone)
 
+    def _resolve_source_name(self, source: int) -> str:
+        if self.config_entry is None:
+            return self.client.get_source_name(source)
+        overrides = self.config_entry.data.get(CONF_SOURCE_NAMES, {})
+        return overrides.get(str(source)) or self.client.get_source_name(source)
+
     @property
     def source(self) -> str:
-        return self.client.get_source_name(self.zone_info.source)
+        return self._resolve_source_name(self.zone_info.source)
 
     @property
     def source_list(self):
-        return [self.client.get_source_name(i) for i in range(1, len(self.sources) + 1)]
+        return [self._resolve_source_name(i) for i in range(1, len(self.sources) + 1)]
 
     @property
     def media_title(self):

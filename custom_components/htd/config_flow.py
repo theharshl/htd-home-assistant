@@ -10,7 +10,7 @@ from homeassistant.core import callback, HomeAssistant
 from htd_client import async_get_model_info
 from htd_client.constants import HtdConstants
 
-from .const import CONF_DEVICE_NAME, DOMAIN
+from .const import CONF_DEVICE_NAME, CONF_ZONE_NAMES, CONF_SOURCE_NAMES, CONF_CUSTOMIZE_NAMES, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +29,9 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
     host: str = None
     port: int = HtdConstants.DEFAULT_PORT
     unique_id: str = None
+    _device_name: str = None
+    _model_info: dict = None
+    _zone_name_overrides: dict = None
 
     async def async_step_dhcp(
         self, discovery_info: DhcpServiceInfo
@@ -97,7 +100,7 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.port = port
                 self.unique_id = unique_id
 
-                return await self.async_step_options()
+                return await self.async_step_device()
 
             errors['base'] = "no_connection"
 
@@ -112,28 +115,36 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         return HtdOptionsFlowHandler(config_entry)
 
-    async def async_step_options(self, user_input=None):
+    async def async_step_device(self, user_input=None):
         if user_input is not None:
-            config_entry = {
-                CONF_HOST: self.host,
-                CONF_PORT: self.port,
-                CONF_UNIQUE_ID: self.unique_id,
-            }
-
+            self._device_name = user_input.get(CONF_DEVICE_NAME, "")
+            if user_input.get(CONF_CUSTOMIZE_NAMES, False):
+                return await self.async_step_zone_names()
             return self.async_create_entry(
-                title=user_input[CONF_DEVICE_NAME],
-                data=config_entry,
+                title=self._device_name,
+                data={
+                    CONF_HOST: self.host,
+                    CONF_PORT: self.port,
+                    CONF_UNIQUE_ID: self.unique_id,
+                    CONF_DEVICE_NAME: self._device_name,
+                    CONF_ZONE_NAMES: {},
+                    CONF_SOURCE_NAMES: {},
+                },
                 options={}
             )
 
         network_address = (self.host, self.port)
         model_info = await async_get_model_info(network_address=network_address)
+        self._model_info = model_info
 
         return self.async_show_form(
-            step_id='options',
-            data_schema=get_options_schema(
-                model_info["friendly_name"],
-            )
+            step_id='device',
+            data_schema=vol.Schema({
+                vol.Optional(
+                    CONF_DEVICE_NAME, default=model_info["friendly_name"]
+                ): cv.string,
+                vol.Optional(CONF_CUSTOMIZE_NAMES, default=False): cv.boolean,
+            })
         )
 
 
@@ -158,16 +169,6 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
             step_id='init',
             data_schema=get_connection_settings_schema(self.config_entry)
         )
-
-
-def get_options_schema(friendly_name: str):
-    return vol.Schema(
-        {
-            vol.Required(
-                CONF_DEVICE_NAME, default=friendly_name
-            ): cv.string,
-        }
-    )
 
 
 def get_connection_settings_schema(config_entry: ConfigEntry | None = None):

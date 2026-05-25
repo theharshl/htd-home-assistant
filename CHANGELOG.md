@@ -1,3 +1,15 @@
+## [0.0.26] - 2026-05-24
+### Added
+- Source names now read from controller automatically (Lync: zone-configured names; MCA: where supported)
+- Device rename option in the integration's settings (no longer need to delete and re-add)
+
+### Changed
+- Updated python-htd library to v0.1.0 (full Lync feature support, EQ command fixes)
+
+### Fixed
+- Removed deprecated `hass.loop` argument (fixes deprecation warning in HA 2024+)
+- Cleaned up stale translation keys and populated empty strings.json
+
 ### 2.0.0 - TBD
 - new HTD domain, 
 - support ConfigFlow

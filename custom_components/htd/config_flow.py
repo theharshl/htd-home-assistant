@@ -189,7 +189,8 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Optional(f"source_{i}_name", default=""): cv.string
                 for i in range(1, source_count + 1)
-            })
+            }),
+            last_step=False,
         )
 
     async def async_step_source_filter_toggle(self, user_input=None):
@@ -352,7 +353,8 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
                 ): cv.string
                 for i in range(1, source_count + 1)
             }),
-            description_placeholders=placeholders
+            description_placeholders=placeholders,
+            last_step=False,
         )
 
     async def async_step_source_filter_toggle(self, user_input=None):

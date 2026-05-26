@@ -10,7 +10,15 @@ from homeassistant.core import callback, HomeAssistant
 from htd_client import async_get_model_info
 from htd_client.constants import HtdConstants
 
-from .const import CONF_DEVICE_NAME, CONF_ZONE_NAMES, CONF_SOURCE_NAMES, CONF_CUSTOMIZE_NAMES, DOMAIN
+from .const import (
+    CONF_DEVICE_NAME,
+    CONF_ZONE_NAMES,
+    CONF_SOURCE_NAMES,
+    CONF_CUSTOMIZE_NAMES,
+    CONF_SOURCE_FILTER_ENABLED,
+    CONF_ZONE_SOURCE_FILTERS,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +40,10 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
     _device_name: str = None
     _model_info: dict = None
     _zone_name_overrides: dict = None
+    _source_name_overrides: dict = None
+    _source_filter_enabled: bool = False
+    _zone_source_filters: dict = None
+    _current_filter_zone: int = 1
 
     async def async_step_dhcp(
         self, discovery_info: DhcpServiceInfo
@@ -120,18 +132,9 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             self._device_name = user_input.get(CONF_DEVICE_NAME, "")
             if user_input.get(CONF_CUSTOMIZE_NAMES, False):
                 return await self.async_step_zone_names()
-            return self.async_create_entry(
-                title=self._device_name,
-                data={
-                    CONF_HOST: self.host,
-                    CONF_PORT: self.port,
-                    CONF_UNIQUE_ID: self.unique_id,
-                    CONF_DEVICE_NAME: self._device_name,
-                    CONF_ZONE_NAMES: {},
-                    CONF_SOURCE_NAMES: {},
-                },
-                options={}
-            )
+            self._zone_name_overrides = {}
+            self._source_name_overrides = {}
+            return await self.async_step_source_filter_toggle()
 
         network_address = (self.host, self.port)
         model_info = await async_get_model_info(network_address=network_address)
@@ -174,23 +177,12 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
         source_count = self._model_info["sources"]
 
         if user_input is not None:
-            source_name_overrides = {
+            self._source_name_overrides = {
                 str(i): name
                 for i in range(1, source_count + 1)
                 if (name := (user_input.get(f"source_{i}_name") or "").strip())
             }
-            return self.async_create_entry(
-                title=self._device_name,
-                data={
-                    CONF_HOST: self.host,
-                    CONF_PORT: self.port,
-                    CONF_UNIQUE_ID: self.unique_id,
-                    CONF_DEVICE_NAME: self._device_name,
-                    CONF_ZONE_NAMES: self._zone_name_overrides or {},
-                    CONF_SOURCE_NAMES: source_name_overrides,
-                },
-                options={}
-            )
+            return await self.async_step_source_filter_toggle()
 
         return self.async_show_form(
             step_id='source_names',
@@ -198,6 +190,86 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(f"source_{i}_name", default=""): cv.string
                 for i in range(1, source_count + 1)
             })
+        )
+
+    async def async_step_source_filter_toggle(self, user_input=None):
+        if user_input is not None:
+            self._source_filter_enabled = user_input.get(CONF_SOURCE_FILTER_ENABLED, False)
+            if not self._source_filter_enabled:
+                self._zone_source_filters = {}
+                return self._create_entry()
+            self._zone_source_filters = {}
+            self._current_filter_zone = 1
+            return await self.async_step_zone_source_filter()
+
+        return self.async_show_form(
+            step_id='source_filter_toggle',
+            data_schema=vol.Schema({
+                vol.Optional(CONF_SOURCE_FILTER_ENABLED, default=False): cv.boolean,
+            }),
+            last_step=False,
+        )
+
+    async def async_step_zone_source_filter(self, user_input=None):
+        source_count = self._model_info["sources"]
+        zone_count = self._model_info["zones"]
+        zone = self._current_filter_zone
+
+        if user_input is not None:
+            whitelist = [
+                i for i in range(1, source_count + 1)
+                if user_input.get(f"source_{i}_enabled", True)
+            ]
+            if not whitelist or len(whitelist) == source_count:
+                whitelist = []
+            self._zone_source_filters[str(zone)] = whitelist
+
+            if zone >= zone_count:
+                return self._create_entry()
+            self._current_filter_zone += 1
+            return await self.async_step_zone_source_filter()
+
+        zone_name = (self._zone_name_overrides or {}).get(str(zone)) or f"Zone {zone}"
+        existing = (self._zone_source_filters or {}).get(str(zone), [])
+        source_labels = {
+            f"source_{i}_label": (
+                (self._source_name_overrides or {}).get(str(i)) or f"Source {i}"
+            )
+            for i in range(1, source_count + 1)
+        }
+
+        return self.async_show_form(
+            step_id='zone_source_filter',
+            data_schema=vol.Schema({
+                vol.Optional(
+                    f"source_{i}_enabled",
+                    default=True if not existing or i in existing else False,
+                ): cv.boolean
+                for i in range(1, source_count + 1)
+            }),
+            description_placeholders={
+                "zone_name": zone_name,
+                "zone_number": str(zone),
+                "zone_count": str(zone_count),
+                **source_labels,
+            },
+            last_step=(zone == zone_count),
+        )
+
+    def _create_entry(self):
+        return self.async_create_entry(
+            title=self._device_name,
+            data={
+                CONF_HOST: self.host,
+                CONF_PORT: self.port,
+                CONF_UNIQUE_ID: self.unique_id,
+                CONF_DEVICE_NAME: self._device_name,
+                CONF_ZONE_NAMES: self._zone_name_overrides or {},
+                CONF_SOURCE_NAMES: self._source_name_overrides or {},
+                CONF_SOURCE_FILTER_ENABLED: self._source_filter_enabled,
+                CONF_ZONE_SOURCE_FILTERS: self._zone_source_filters or {},
+            },
+            options={},
         )
 
 

@@ -1,5 +1,13 @@
-## 0.0.27
+## [0.0.28] - 2026-05-25
+### Added
+- Per-zone source filtering: whitelist which sources appear in each zone's dropdown (issue #5)
+- Source filter toggle in both initial setup and reconfigure flows
+- Per-zone source checkboxes using resolved zone/source names
 
+### Fixed
+- `async_select_source` now maps by controller index instead of list position — was broken when source filtering is active
+
+## [0.0.27] - 2026-05-24
 ### Added
 - Zone custom naming: set per-zone display names from the HA config/options UI (closes #3)
 - Source custom naming: override source display names from the HA config/options UI (closes #8)

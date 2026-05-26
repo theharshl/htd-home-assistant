@@ -277,6 +277,10 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
     _new_title: str = None
     _connection_data: dict = None
     _zone_name_overrides: dict = None
+    _source_name_overrides: dict = None
+    _source_filter_enabled: bool = False
+    _zone_source_filters: dict = None
+    _current_filter_zone: int = 1
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
@@ -326,23 +330,12 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
         source_count = client.get_source_count()
 
         if user_input is not None:
-            source_name_overrides = {
+            self._source_name_overrides = {
                 str(i): name
                 for i in range(1, source_count + 1)
                 if (name := (user_input.get(f"source_{i}_name") or "").strip())
             }
-            data = {
-                **self.config_entry.data,
-                **self._connection_data,
-                CONF_ZONE_NAMES: self._zone_name_overrides or {},
-                CONF_SOURCE_NAMES: source_name_overrides,
-            }
-            self.hass.config_entries.async_update_entry(
-                self.config_entry,
-                data=data,
-                title=self._new_title,
-            )
-            return self.async_create_entry(title=self._new_title, data={})
+            return await self.async_step_source_filter_toggle()
 
         existing_source_overrides = self.config_entry.data.get(CONF_SOURCE_NAMES, {})
         placeholders = {
@@ -361,6 +354,95 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
             }),
             description_placeholders=placeholders
         )
+
+    async def async_step_source_filter_toggle(self, user_input=None):
+        if user_input is not None:
+            self._source_filter_enabled = user_input.get(CONF_SOURCE_FILTER_ENABLED, False)
+            if not self._source_filter_enabled:
+                self._zone_source_filters = {}
+                return self._update_entry()
+            self._zone_source_filters = {}
+            self._current_filter_zone = 1
+            return await self.async_step_zone_source_filter()
+
+        existing = self.config_entry.data.get(CONF_SOURCE_FILTER_ENABLED, False)
+        return self.async_show_form(
+            step_id='source_filter_toggle',
+            data_schema=vol.Schema({
+                vol.Optional(CONF_SOURCE_FILTER_ENABLED, default=existing): cv.boolean,
+            }),
+            last_step=False,
+        )
+
+    async def async_step_zone_source_filter(self, user_input=None):
+        client = self.config_entry.runtime_data
+        source_count = client.get_source_count()
+        zone_count = client.get_zone_count()
+        zone = self._current_filter_zone
+
+        if user_input is not None:
+            whitelist = [
+                i for i in range(1, source_count + 1)
+                if user_input.get(f"source_{i}_enabled", True)
+            ]
+            if not whitelist or len(whitelist) == source_count:
+                whitelist = []
+            self._zone_source_filters[str(zone)] = whitelist
+
+            if zone >= zone_count:
+                return self._update_entry()
+            self._current_filter_zone += 1
+            return await self.async_step_zone_source_filter()
+
+        existing_filters = self.config_entry.data.get(CONF_ZONE_SOURCE_FILTERS, {})
+        existing = existing_filters.get(str(zone), [])
+        zone_name = (
+            (self._zone_name_overrides or {}).get(str(zone))
+            or client.get_zone_name(zone)
+            or f"Zone {zone}"
+        )
+        source_labels = {
+            f"source_{i}_label": (
+                (self._source_name_overrides or {}).get(str(i))
+                or client.get_source_name(i)
+                or f"Source {i}"
+            )
+            for i in range(1, source_count + 1)
+        }
+
+        return self.async_show_form(
+            step_id='zone_source_filter',
+            data_schema=vol.Schema({
+                vol.Optional(
+                    f"source_{i}_enabled",
+                    default=True if not existing or i in existing else False,
+                ): cv.boolean
+                for i in range(1, source_count + 1)
+            }),
+            description_placeholders={
+                "zone_name": zone_name,
+                "zone_number": str(zone),
+                "zone_count": str(zone_count),
+                **source_labels,
+            },
+            last_step=(zone == zone_count),
+        )
+
+    def _update_entry(self):
+        data = {
+            **self.config_entry.data,
+            **self._connection_data,
+            CONF_ZONE_NAMES: self._zone_name_overrides or {},
+            CONF_SOURCE_NAMES: self._source_name_overrides or {},
+            CONF_SOURCE_FILTER_ENABLED: self._source_filter_enabled,
+            CONF_ZONE_SOURCE_FILTERS: self._zone_source_filters or {},
+        }
+        self.hass.config_entries.async_update_entry(
+            self.config_entry,
+            data=data,
+            title=self._new_title,
+        )
+        return self.async_create_entry(title=self._new_title, data={})
 
 
 def get_connection_settings_schema(config_entry: ConfigEntry | None = None):

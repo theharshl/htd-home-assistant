@@ -19,7 +19,14 @@ from homeassistant.core import HomeAssistant
 from htd_client import BaseClient, HtdConstants, HtdMcaClient
 from htd_client.models import ZoneDetail
 
-from .const import DOMAIN, CONF_DEVICE_NAME, CONF_ZONE_NAMES, CONF_SOURCE_NAMES
+from .const import (
+    DOMAIN,
+    CONF_DEVICE_NAME,
+    CONF_ZONE_NAMES,
+    CONF_SOURCE_NAMES,
+    CONF_SOURCE_FILTER_ENABLED,
+    CONF_ZONE_SOURCE_FILTERS,
+)
 
 
 def make_alphanumeric(input_string):
@@ -209,17 +216,30 @@ class HtdDevice(MediaPlayerEntity):
     def source(self) -> str:
         return self._resolve_source_name(self.zone_info.source)
 
+    def _build_source_map(self) -> dict[str, int]:
+        if self.config_entry is None:
+            return {self._resolve_source_name(i): i for i in range(1, len(self.sources) + 1)}
+        filter_enabled = self.config_entry.data.get(CONF_SOURCE_FILTER_ENABLED, False)
+        filters = self.config_entry.data.get(CONF_ZONE_SOURCE_FILTERS, {})
+        allowed = filters.get(str(self.zone)) if filter_enabled else None
+        result = {}
+        for i in range(1, len(self.sources) + 1):
+            if allowed is None or not allowed or i in allowed:
+                result[self._resolve_source_name(i)] = i
+        return result
+
     @property
-    def source_list(self):
-        return [self._resolve_source_name(i) for i in range(1, len(self.sources) + 1)]
+    def source_list(self) -> list[str]:
+        return list(self._build_source_map().keys())
 
     @property
     def media_title(self):
         return self.source
 
-    async def async_select_source(self, source: int):
-        source_index = self.source_list.index(source)
-        await self.client.async_set_source(self.zone, source_index + 1)
+    async def async_select_source(self, source: str) -> None:
+        controller_index = self._build_source_map().get(source)
+        if controller_index is not None:
+            await self.client.async_set_source(self.zone, controller_index)
 
     @property
     def icon(self):

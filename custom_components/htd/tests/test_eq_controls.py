@@ -71,6 +71,7 @@ def test_treble_dispatch():
     asyncio.run(entity.async_set_native_value(-3.0))
     client.async_set_treble.assert_called_once_with(2, -3)
     client.async_set_bass.assert_not_called()
+    client.async_set_balance.assert_not_called()
 
 
 def test_balance_dispatch():
@@ -79,3 +80,4 @@ def test_balance_dispatch():
     asyncio.run(entity.async_set_native_value(6.0))
     client.async_set_balance.assert_called_once_with(3, 6)
     client.async_set_bass.assert_not_called()
+    client.async_set_treble.assert_not_called()

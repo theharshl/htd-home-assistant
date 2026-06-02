@@ -24,10 +24,7 @@ for _mod in _MOCK_MODULES:
         sys.modules[_mod] = MagicMock()
 
 # homeassistant.components.number needs a real class for HtdEqNumber to inherit from
-import types as _types
-from unittest.mock import MagicMock as _MagicMock
-
-_number_mod = _MagicMock()
+_number_mod = MagicMock()
 
 class _NumberEntityStub:
     """Stub base — lets HtdEqNumber be defined and instantiated in tests."""

@@ -93,9 +93,9 @@ Dispatches to the appropriate library method:
 
 Follows the same pattern as `HtdDevice` in `media_player.py`:
 
-- `async_added_to_hass` — subscribes via `client.async_subscribe(zone, self._do_update)`
-- `async_will_remove_from_hass` — unsubscribes
-- `_do_update(zone)` — calls `self.async_write_ha_state()` when the zone's data changes
+- `async_added_to_hass` — subscribes via `client.async_subscribe(self._do_update)` and calls `client.refresh()`
+- `async_will_remove_from_hass` — unsubscribes via `client.async_unsubscribe(self._do_update)`
+- `_do_update(zone)` — mirrors `HtdDevice._do_update`: skips if zone doesn't match `self.zone` (or is `None` with no zone data), then calls `self.async_write_ha_state()`
 
 ### `async_setup_entry`
 

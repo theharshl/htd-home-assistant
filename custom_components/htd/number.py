@@ -1,12 +1,6 @@
 """EQ controls (bass, treble, balance) as NumberEntity sliders for HTD zones."""
-import logging
-
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import CONF_UNIQUE_ID
-
-from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 # Ranges as (min, max, step). String keys match HtdDeviceKind.value ("lync"/"mca").
 _RANGES: dict[str, dict[str, tuple[float, float, float]]] = {
@@ -69,7 +63,7 @@ class HtdEqNumber(NumberEntity):
         return getattr(self.client.get_zone(self.zone), self.control)
 
     async def async_set_native_value(self, value: float) -> None:
-        int_val = int(value)
+        int_val = round(value)
         if self.control == "bass":
             await self.client.async_set_bass(self.zone, int_val)
         elif self.control == "treble":

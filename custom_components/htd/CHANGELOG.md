@@ -1,3 +1,8 @@
+## [0.0.29] - 2026-06-02
+### Added
+- Bass and Treble sliders (NumberEntity) per zone, enabled by default (issue #1)
+- Balance slider per zone, disabled by default — enable via Settings → Devices & Services → entity list
+
 ## [0.0.28] - 2026-05-25
 ### Added
 - Per-zone source filtering: whitelist which sources appear in each zone's dropdown (issue #5)

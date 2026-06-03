@@ -2,6 +2,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
+from custom_components.htd.const import CONF_ZONE_NAMES
 from custom_components.htd.switch import HtdDndSwitch, async_setup_entry
 
 
@@ -19,7 +20,7 @@ def _make_client(kind_value="lync", zone_name=None, has_zone_data=True, dnd=Fals
 
 def _make_config_entry(zone_names=None):
     entry = MagicMock()
-    entry.data = {"zone_names": zone_names or {}}
+    entry.data = {CONF_ZONE_NAMES: zone_names or {}}
     return entry
 
 

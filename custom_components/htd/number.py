@@ -1,8 +1,10 @@
 """EQ controls (bass, treble, balance) as NumberEntity sliders for HTD zones."""
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import CONF_UNIQUE_ID
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 
-from .const import CONF_ZONE_NAMES
+from .const import CONF_ZONE_NAMES, CONF_ZONE_FILTER_ENABLED, CONF_ENABLED_ZONES, DOMAIN
 
 # Ranges as (min, max, step). String keys match HtdDeviceKind.value ("lync"/"mca").
 _RANGES: dict[str, dict[str, tuple[float, float, float]]] = {
@@ -29,14 +31,33 @@ def _eq_enabled_default(control: str) -> bool:
     return control != "balance"
 
 
-async def async_setup_entry(_, config_entry, async_add_entities):
+async def async_setup_entry(hass, config_entry, async_add_entities):
     client = config_entry.runtime_data
     unique_id = config_entry.data.get(CONF_UNIQUE_ID)
-    entities = [
-        HtdEqNumber(client, unique_id, zone, control, config_entry)
-        for zone in range(1, client.get_zone_count() + 1)
-        for control in ("bass", "treble", "balance")
-    ]
+
+    zone_filter_enabled = config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False)
+    enabled_zones = set(config_entry.data.get(CONF_ENABLED_ZONES, []))
+    registry = er.async_get(hass)
+
+    entities = []
+    for zone in range(1, client.get_zone_count() + 1):
+        for control in ("bass", "treble", "balance"):
+            entities.append(HtdEqNumber(client, unique_id, zone, control, config_entry))
+
+        should_enable = not zone_filter_enabled or zone in enabled_zones
+        for control in ("bass", "treble", "balance"):
+            uid = f"{unique_id}_zone_{zone}_{control}"
+            entity_id = registry.async_get_entity_id("number", DOMAIN, uid)
+            if entity_id:
+                entry = registry.async_get(entity_id)
+                if entry:
+                    if should_enable and entry.disabled_by == RegistryEntryDisabler.INTEGRATION:
+                        registry.async_update_entity(entity_id, disabled_by=None)
+                    elif not should_enable and entry.disabled_by is None:
+                        registry.async_update_entity(
+                            entity_id, disabled_by=RegistryEntryDisabler.INTEGRATION
+                        )
+
     async_add_entities(entities)
 
 
@@ -55,7 +76,13 @@ class HtdEqNumber(NumberEntity):
         self._attr_native_max_value = max_val
         self._attr_native_step = step
         self._attr_unique_id = f"{unique_id}_zone_{zone}_{control}"
-        self._attr_entity_registry_enabled_default = _eq_enabled_default(control)
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        if self.config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False):
+            if self.zone not in self.config_entry.data.get(CONF_ENABLED_ZONES, []):
+                return False
+        return _eq_enabled_default(self.control)
 
     @property
     def name(self) -> str:

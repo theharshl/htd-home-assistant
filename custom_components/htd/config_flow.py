@@ -14,7 +14,8 @@ from .const import (
     CONF_DEVICE_NAME,
     CONF_ZONE_NAMES,
     CONF_SOURCE_NAMES,
-    CONF_CUSTOMIZE_NAMES,
+    CONF_ZONE_FILTER_ENABLED,
+    CONF_ENABLED_ZONES,
     CONF_SOURCE_FILTER_ENABLED,
     CONF_ZONE_SOURCE_FILTERS,
     DOMAIN,
@@ -44,6 +45,8 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
     _source_filter_enabled: bool = False
     _zone_source_filters: dict = None
     _current_filter_zone: int = 1
+    _zone_filter_enabled: bool = False
+    _enabled_zones: list = None
 
     async def async_step_dhcp(
         self, discovery_info: DhcpServiceInfo
@@ -130,11 +133,7 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_device(self, user_input=None):
         if user_input is not None:
             self._device_name = user_input.get(CONF_DEVICE_NAME, "")
-            if user_input.get(CONF_CUSTOMIZE_NAMES, False):
-                return await self.async_step_zone_names()
-            self._zone_name_overrides = {}
-            self._source_name_overrides = {}
-            return await self.async_step_source_filter_toggle()
+            return await self.async_step_zone_names()
 
         network_address = (self.host, self.port)
         model_info = await async_get_model_info(network_address=network_address)
@@ -148,7 +147,6 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_DEVICE_NAME, default=model_info["friendly_name"]
                 ): cv.string,
-                vol.Optional(CONF_CUSTOMIZE_NAMES, default=False): cv.boolean,
             })
         )
 
@@ -162,7 +160,7 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
                 for i in range(1, zone_count + 1)
                 if (name := (user_input.get(f"zone_{i}_name") or "").strip())
             }
-            return await self.async_step_source_names()
+            return await self.async_step_zone_filter()
 
         return self.async_show_form(
             step_id='zone_names',
@@ -171,6 +169,39 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
                 for i in range(1, zone_count + 1)
             }),
             last_step=False
+        )
+
+    async def async_step_zone_filter(self, user_input=None):
+        zone_count = self._model_info["zones"]
+
+        if user_input is not None:
+            enabled = [
+                i for i in range(1, zone_count + 1)
+                if user_input.get(f"zone_{i}_enabled", True)
+            ]
+            if len(enabled) == zone_count:
+                self._zone_filter_enabled = False
+                self._enabled_zones = []
+            else:
+                self._zone_filter_enabled = True
+                self._enabled_zones = enabled
+            return await self.async_step_source_names()
+
+        zone_labels = {
+            f"zone_{i}_label": (
+                (self._zone_name_overrides or {}).get(str(i)) or f"Zone {i}"
+            )
+            for i in range(1, zone_count + 1)
+        }
+
+        return self.async_show_form(
+            step_id='zone_filter',
+            data_schema=vol.Schema({
+                vol.Optional(f"zone_{i}_enabled", default=True): cv.boolean
+                for i in range(1, zone_count + 1)
+            }),
+            description_placeholders=zone_labels,
+            last_step=False,
         )
 
     async def async_step_source_names(self, user_input=None):
@@ -267,6 +298,8 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_DEVICE_NAME: self._device_name,
                 CONF_ZONE_NAMES: self._zone_name_overrides or {},
                 CONF_SOURCE_NAMES: self._source_name_overrides or {},
+                CONF_ZONE_FILTER_ENABLED: self._zone_filter_enabled,
+                CONF_ENABLED_ZONES: self._enabled_zones or [],
                 CONF_SOURCE_FILTER_ENABLED: self._source_filter_enabled,
                 CONF_ZONE_SOURCE_FILTERS: self._zone_source_filters or {},
             },
@@ -282,6 +315,8 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
     _source_filter_enabled: bool = False
     _zone_source_filters: dict = None
     _current_filter_zone: int = 1
+    _zone_filter_enabled: bool = False
+    _enabled_zones: list = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         if user_input is not None:
@@ -305,7 +340,7 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
                 for i in range(1, zone_count + 1)
                 if (name := (user_input.get(f"zone_{i}_name") or "").strip())
             }
-            return await self.async_step_source_names()
+            return await self.async_step_zone_filter()
 
         existing_zone_overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {})
         placeholders = {
@@ -324,6 +359,48 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
             }),
             description_placeholders=placeholders,
             last_step=False
+        )
+
+    async def async_step_zone_filter(self, user_input=None):
+        client = self.config_entry.runtime_data
+        zone_count = client.get_zone_count()
+
+        if user_input is not None:
+            enabled = [
+                i for i in range(1, zone_count + 1)
+                if user_input.get(f"zone_{i}_enabled", True)
+            ]
+            if len(enabled) == zone_count:
+                self._zone_filter_enabled = False
+                self._enabled_zones = []
+            else:
+                self._zone_filter_enabled = True
+                self._enabled_zones = enabled
+            return await self.async_step_source_names()
+
+        existing_enabled = set(self.config_entry.data.get(CONF_ENABLED_ZONES, []))
+        existing_filter = self.config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False)
+
+        zone_labels = {
+            f"zone_{i}_label": (
+                (self._zone_name_overrides or {}).get(str(i))
+                or client.get_zone_name(i)
+                or f"Zone {i}"
+            )
+            for i in range(1, zone_count + 1)
+        }
+
+        return self.async_show_form(
+            step_id='zone_filter',
+            data_schema=vol.Schema({
+                vol.Optional(
+                    f"zone_{i}_enabled",
+                    default=True if not existing_filter or i in existing_enabled else False,
+                ): cv.boolean
+                for i in range(1, zone_count + 1)
+            }),
+            description_placeholders=zone_labels,
+            last_step=False,
         )
 
     async def async_step_source_names(self, user_input: dict[str, Any] | None = None):
@@ -436,6 +513,8 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
             **self._connection_data,
             CONF_ZONE_NAMES: self._zone_name_overrides or {},
             CONF_SOURCE_NAMES: self._source_name_overrides or {},
+            CONF_ZONE_FILTER_ENABLED: self._zone_filter_enabled,
+            CONF_ENABLED_ZONES: self._enabled_zones or [],
             CONF_SOURCE_FILTER_ENABLED: self._source_filter_enabled,
             CONF_ZONE_SOURCE_FILTERS: self._zone_source_filters or {},
         }

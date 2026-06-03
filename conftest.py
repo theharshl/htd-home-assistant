@@ -23,6 +23,16 @@ for _mod in _MOCK_MODULES:
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()
 
+# homeassistant.components.media_player needs a real class for HtdDevice to inherit from
+class _MediaPlayerEntityStub:
+    """Stub base — lets HtdDevice be defined and instantiated in tests."""
+    should_poll = False
+    def async_write_ha_state(self): pass
+    def schedule_update_ha_state(self, force_refresh=False): pass
+
+_media_player_mod = sys.modules["homeassistant.components.media_player"]
+_media_player_mod.MediaPlayerEntity = _MediaPlayerEntityStub
+
 # homeassistant.components.number needs a real class for HtdEqNumber to inherit from
 _number_mod = MagicMock()
 

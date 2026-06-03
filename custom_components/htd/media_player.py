@@ -18,12 +18,16 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from htd_client import BaseClient, HtdConstants, HtdMcaClient
 from htd_client.models import ZoneDetail
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 
 from .const import (
     DOMAIN,
     CONF_DEVICE_NAME,
     CONF_ZONE_NAMES,
     CONF_SOURCE_NAMES,
+    CONF_ZONE_FILTER_ENABLED,
+    CONF_ENABLED_ZONES,
     CONF_SOURCE_FILTER_ENABLED,
     CONF_ZONE_SOURCE_FILTERS,
 )
@@ -79,15 +83,19 @@ async def async_setup_platform(hass, _, async_add_entities, __=None):
     return True
 
 
-async def async_setup_entry(_: HomeAssistant, config_entry: HtdClientConfigEntry, async_add_entities):
-    entities = []
-
+async def async_setup_entry(hass: HomeAssistant, config_entry: HtdClientConfigEntry, async_add_entities):
     client = config_entry.runtime_data
     zone_count = client.get_zone_count()
     source_count = client.get_source_count()
     device_name = config_entry.title
     unique_id = config_entry.data.get(CONF_UNIQUE_ID)
     sources = [f"Source {i + 1}" for i in range(source_count)]
+
+    zone_filter_enabled = config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False)
+    enabled_zones = set(config_entry.data.get(CONF_ENABLED_ZONES, []))
+    registry = er.async_get(hass)
+
+    entities = []
     for zone in range(1, zone_count + 1):
         entity = HtdDevice(
             unique_id,
@@ -97,8 +105,20 @@ async def async_setup_entry(_: HomeAssistant, config_entry: HtdClientConfigEntry
             client,
             config_entry
         )
-
         entities.append(entity)
+
+        should_enable = not zone_filter_enabled or zone in enabled_zones
+        uid = f"{unique_id}_{zone:02}"
+        entity_id = registry.async_get_entity_id("media_player", DOMAIN, uid)
+        if entity_id:
+            entry = registry.async_get(entity_id)
+            if entry:
+                if should_enable and entry.disabled_by == RegistryEntryDisabler.INTEGRATION:
+                    registry.async_update_entity(entity_id, disabled_by=None)
+                elif not should_enable and entry.disabled_by is None:
+                    registry.async_update_entity(
+                        entity_id, disabled_by=RegistryEntryDisabler.INTEGRATION
+                    )
 
     async_add_entities(entities)
 
@@ -135,6 +155,14 @@ class HtdDevice(MediaPlayerEntity):
     @property
     def enabled(self) -> bool:
         return self.zone_info is not None and self.zone_info.enabled
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        if self.config_entry is None:
+            return True
+        if not self.config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False):
+            return True
+        return self.zone in self.config_entry.data.get(CONF_ENABLED_ZONES, [])
 
     @property
     def supported_features(self):

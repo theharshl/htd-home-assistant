@@ -22,3 +22,14 @@ _MOCK_MODULES = [
 for _mod in _MOCK_MODULES:
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()
+
+# homeassistant.components.number needs a real class for HtdEqNumber to inherit from
+_number_mod = MagicMock()
+
+class _NumberEntityStub:
+    """Stub base — lets HtdEqNumber be defined and instantiated in tests."""
+    should_poll = False
+    def async_write_ha_state(self): pass
+
+_number_mod.NumberEntity = _NumberEntityStub
+sys.modules["homeassistant.components.number"] = _number_mod

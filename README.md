@@ -17,6 +17,7 @@ This integration adds support for the Home Theater Direct line of Whole House Au
 - Auto-discovery via DHCP (MAC prefix `A44F29*` / `A64F29*`)
 - Per-zone power, volume, mute, and source control
 - Source names read automatically from the controller on connect (Lync: uses your zone-configured names; MCA: where supported)
+- Per-zone **Bass** and **Treble** sliders (enabled by default) and a **Balance** slider (disabled by default — see below)
 - Device rename via the integration's settings — no need to delete and re-add
 - Serial (USB) or network connection
 
@@ -37,6 +38,20 @@ To let the integration's name take effect, clear the manual override:
 2. Find the entity and open it
 3. Click the name field and delete the custom value (leave it blank / reset to default)
 4. Save — the entity will now use the name from the integration
+
+## EQ Controls (Bass, Treble, Balance)
+
+Each zone exposes three `number` entities for equalizer adjustments:
+
+| Entity | Default | Range (Lync) | Range (MCA) |
+|--------|---------|-------------|-------------|
+| Bass   | Enabled | -10 to +10, step 1 | -12 to +12, step 4 |
+| Treble | Enabled | -10 to +10, step 1 | -12 to +12, step 4 |
+| Balance | **Hidden** | -18 to +18, step 1 | -12 to +12, step 6 |
+
+Bass and Treble appear automatically on the device page and in dashboards after installing this version. Balance is created but hidden by default because most fixed-speaker whole-home audio setups never need it.
+
+**To enable Balance:** Go to **Settings → Devices & Services → your HTD device** → find the Balance entity for the zone you want → click the toggle to enable it.
 
 ## Installation steps
 

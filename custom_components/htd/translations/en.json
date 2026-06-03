@@ -12,16 +12,12 @@
       "device": {
         "title": "Device Setup",
         "data": {
-          "device_name": "Device name",
-          "customize_names": "Customize zone and source names now"
-        },
-        "data_description": {
-          "customize_names": "You can update names at any time via Configure."
+          "device_name": "Device name"
         }
       },
       "zone_names": {
         "title": "Zone Names",
-        "description": "Step 3 of 5 — Leave a field blank to use the controller's default name for that zone.",
+        "description": "Step 3 of 6 — Leave a field blank to use the controller's default name for that zone.",
         "data": {
           "zone_1_name": "Zone 1", "zone_2_name": "Zone 2", "zone_3_name": "Zone 3",
           "zone_4_name": "Zone 4", "zone_5_name": "Zone 5", "zone_6_name": "Zone 6",
@@ -29,9 +25,25 @@
           "zone_10_name": "Zone 10", "zone_11_name": "Zone 11", "zone_12_name": "Zone 12"
         }
       },
+      "zone_filter": {
+        "title": "Zone Filter",
+        "description": "Step 4 of 6 — Choose which zones to create Home Assistant entities for. Unchecked zones will be disabled — they still exist in the entity registry and can be manually re-enabled at any time.\n\nIf all zones are checked, no filtering is applied.",
+        "data": {
+          "zone_1_enabled": "Zone 1", "zone_2_enabled": "Zone 2", "zone_3_enabled": "Zone 3",
+          "zone_4_enabled": "Zone 4", "zone_5_enabled": "Zone 5", "zone_6_enabled": "Zone 6",
+          "zone_7_enabled": "Zone 7", "zone_8_enabled": "Zone 8", "zone_9_enabled": "Zone 9",
+          "zone_10_enabled": "Zone 10", "zone_11_enabled": "Zone 11", "zone_12_enabled": "Zone 12"
+        },
+        "data_description": {
+          "zone_1_enabled": "{zone_1_label}", "zone_2_enabled": "{zone_2_label}", "zone_3_enabled": "{zone_3_label}",
+          "zone_4_enabled": "{zone_4_label}", "zone_5_enabled": "{zone_5_label}", "zone_6_enabled": "{zone_6_label}",
+          "zone_7_enabled": "{zone_7_label}", "zone_8_enabled": "{zone_8_label}", "zone_9_enabled": "{zone_9_label}",
+          "zone_10_enabled": "{zone_10_label}", "zone_11_enabled": "{zone_11_label}", "zone_12_enabled": "{zone_12_label}"
+        }
+      },
       "source_names": {
         "title": "Source Names",
-        "description": "Step 4 of 5 — Leave a field blank to use the controller's default name for that source.",
+        "description": "Step 5 of 6 — Leave a field blank to use the controller's default name for that source.",
         "data": {
           "source_1_name": "Source 1", "source_2_name": "Source 2", "source_3_name": "Source 3",
           "source_4_name": "Source 4", "source_5_name": "Source 5", "source_6_name": "Source 6",
@@ -44,7 +56,7 @@
       },
       "source_filter_toggle": {
         "title": "Per-Zone Source Filtering",
-        "description": "Step 5 of 5 — Source filtering lets you control which sources appear in the source dropdown for each zone. This is a **whitelist** — only sources you check will be shown in that zone.\n\nBy default, filtering is disabled and all sources are visible on every zone. If you enable filtering below, you will be taken through each zone one at a time to configure its source list.\n\nYou can change this setting at any time via the integration's reconfigure option.",
+        "description": "Step 6 of 6 — Source filtering lets you control which sources appear in the source dropdown for each zone. This is a **whitelist** — only sources you check will be shown in that zone.\n\nBy default, filtering is disabled and all sources are visible on every zone. If you enable filtering below, you will be taken through each zone one at a time to configure its source list.\n\nYou can change this setting at any time via the integration's reconfigure option.",
         "data": {
           "source_filter_enabled": "Enable per-zone source filtering"
         }
@@ -81,7 +93,7 @@
     "step": {
       "init": {
         "title": "Configure Device",
-        "description": "Step 1 of 4",
+        "description": "Step 1 of 5",
         "data": {
           "host": "Host name or IP Address",
           "port": "Port",
@@ -90,7 +102,7 @@
       },
       "zone_names": {
         "title": "Zone Names",
-        "description": "Step 2 of 4 — Leave a field blank to use the controller's name. Clear an override to revert.",
+        "description": "Step 2 of 5 — Leave a field blank to use the controller's name. Clear an override to revert.",
         "data": {
           "zone_1_name": "Zone 1", "zone_2_name": "Zone 2", "zone_3_name": "Zone 3",
           "zone_4_name": "Zone 4", "zone_5_name": "Zone 5", "zone_6_name": "Zone 6",
@@ -112,9 +124,25 @@
           "zone_12_name": "Controller: {zone_12_controller}"
         }
       },
+      "zone_filter": {
+        "title": "Zone Filter",
+        "description": "Step 3 of 5 — Choose which zones to create Home Assistant entities for. Unchecked zones will be disabled — they still exist in the entity registry and can be manually re-enabled at any time.\n\nIf all zones are checked, no filtering is applied.",
+        "data": {
+          "zone_1_enabled": "Zone 1", "zone_2_enabled": "Zone 2", "zone_3_enabled": "Zone 3",
+          "zone_4_enabled": "Zone 4", "zone_5_enabled": "Zone 5", "zone_6_enabled": "Zone 6",
+          "zone_7_enabled": "Zone 7", "zone_8_enabled": "Zone 8", "zone_9_enabled": "Zone 9",
+          "zone_10_enabled": "Zone 10", "zone_11_enabled": "Zone 11", "zone_12_enabled": "Zone 12"
+        },
+        "data_description": {
+          "zone_1_enabled": "{zone_1_label}", "zone_2_enabled": "{zone_2_label}", "zone_3_enabled": "{zone_3_label}",
+          "zone_4_enabled": "{zone_4_label}", "zone_5_enabled": "{zone_5_label}", "zone_6_enabled": "{zone_6_label}",
+          "zone_7_enabled": "{zone_7_label}", "zone_8_enabled": "{zone_8_label}", "zone_9_enabled": "{zone_9_label}",
+          "zone_10_enabled": "{zone_10_label}", "zone_11_enabled": "{zone_11_label}", "zone_12_enabled": "{zone_12_label}"
+        }
+      },
       "source_names": {
         "title": "Source Names",
-        "description": "Step 3 of 4 — Leave a field blank to use the controller's name. Clear an override to revert.",
+        "description": "Step 4 of 5 — Leave a field blank to use the controller's name. Clear an override to revert.",
         "data": {
           "source_1_name": "Source 1", "source_2_name": "Source 2", "source_3_name": "Source 3",
           "source_4_name": "Source 4", "source_5_name": "Source 5", "source_6_name": "Source 6",
@@ -148,7 +176,7 @@
       },
       "source_filter_toggle": {
         "title": "Per-Zone Source Filtering",
-        "description": "Step 4 of 4 — Source filtering lets you control which sources appear in the source dropdown for each zone. This is a **whitelist** — only sources you check will be shown in that zone.\n\nBy default, filtering is disabled and all sources are visible on every zone. If you enable filtering below, you will be taken through each zone one at a time to configure its source list.",
+        "description": "Step 5 of 5 — Source filtering lets you control which sources appear in the source dropdown for each zone. This is a **whitelist** — only sources you check will be shown in that zone.\n\nBy default, filtering is disabled and all sources are visible on every zone. If you enable filtering below, you will be taken through each zone one at a time to configure its source list.",
         "data": {
           "source_filter_enabled": "Enable per-zone source filtering"
         }

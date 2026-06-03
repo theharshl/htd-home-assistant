@@ -76,6 +76,12 @@ def test_entity_name_uses_zone_override():
     assert entity.name == "01-Family Room - DND"
 
 
+def test_entity_name_falls_back_to_client_zone_name():
+    client = _make_client(zone_name="Kitchen")
+    entity = _make_entity(client, zone=1)  # no zone_names override
+    assert entity.name == "Kitchen - DND"
+
+
 def test_entity_name_falls_back_to_zone_n():
     client = _make_client(zone_name=None)
     entity = _make_entity(client, zone=4)

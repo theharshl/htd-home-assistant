@@ -2,6 +2,8 @@
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import CONF_UNIQUE_ID
 
+from .const import CONF_ZONE_NAMES
+
 # Ranges as (min, max, step). String keys match HtdDeviceKind.value ("lync"/"mca").
 _RANGES: dict[str, dict[str, tuple[float, float, float]]] = {
     "lync": {
@@ -31,7 +33,7 @@ async def async_setup_entry(_, config_entry, async_add_entities):
     client = config_entry.runtime_data
     unique_id = config_entry.data.get(CONF_UNIQUE_ID)
     entities = [
-        HtdEqNumber(client, unique_id, zone, control)
+        HtdEqNumber(client, unique_id, zone, control, config_entry)
         for zone in range(1, client.get_zone_count() + 1)
         for control in ("bass", "treble", "balance")
     ]
@@ -40,21 +42,30 @@ async def async_setup_entry(_, config_entry, async_add_entities):
 
 class HtdEqNumber(NumberEntity):
     _attr_mode = NumberMode.SLIDER
-    _attr_has_entity_name = True
     should_poll = False
 
-    def __init__(self, client, unique_id: str, zone: int, control: str):
+    def __init__(self, client, unique_id: str, zone: int, control: str, config_entry):
         self.client = client
         self.zone = zone
         self.control = control
+        self.config_entry = config_entry
         kind_value = client.model["kind"].value
         min_val, max_val, step = _eq_range(kind_value, control)
         self._attr_native_min_value = min_val
         self._attr_native_max_value = max_val
         self._attr_native_step = step
         self._attr_unique_id = f"{unique_id}_zone_{zone}_{control}"
-        self._attr_name = control.capitalize()
         self._attr_entity_registry_enabled_default = _eq_enabled_default(control)
+
+    @property
+    def name(self) -> str:
+        overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {})
+        zone_name = (
+            overrides.get(str(self.zone))
+            or self.client.get_zone_name(self.zone)
+            or f"Zone {self.zone}"
+        )
+        return f"{zone_name} - {self.control.capitalize()}"
 
     @property
     def native_value(self) -> float | None:

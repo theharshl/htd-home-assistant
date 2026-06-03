@@ -1,31 +1,56 @@
 """DND (Do Not Disturb) per-zone switch entity for HTD Lync devices."""
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import CONF_UNIQUE_ID
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 
-from .const import CONF_ZONE_NAMES
+from .const import CONF_ZONE_NAMES, CONF_ZONE_FILTER_ENABLED, CONF_ENABLED_ZONES, DOMAIN
 
 
-async def async_setup_entry(_, config_entry, async_add_entities):
+async def async_setup_entry(hass, config_entry, async_add_entities):
     client = config_entry.runtime_data
     if client.model["kind"].value != "lync":
         return
     unique_id = config_entry.data.get(CONF_UNIQUE_ID)
-    entities = [
-        HtdDndSwitch(client, unique_id, zone, config_entry)
-        for zone in range(1, client.get_zone_count() + 1)
-    ]
+
+    zone_filter_enabled = config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False)
+    enabled_zones = set(config_entry.data.get(CONF_ENABLED_ZONES, []))
+    registry = er.async_get(hass)
+
+    entities = []
+    for zone in range(1, client.get_zone_count() + 1):
+        entities.append(HtdDndSwitch(client, unique_id, zone, config_entry))
+
+        should_enable = not zone_filter_enabled or zone in enabled_zones
+        uid = f"{unique_id}_zone_{zone}_dnd"
+        entity_id = registry.async_get_entity_id("switch", DOMAIN, uid)
+        if entity_id:
+            entry = registry.async_get(entity_id)
+            if entry:
+                if should_enable and entry.disabled_by == RegistryEntryDisabler.INTEGRATION:
+                    registry.async_update_entity(entity_id, disabled_by=None)
+                elif not should_enable and entry.disabled_by is None:
+                    registry.async_update_entity(
+                        entity_id, disabled_by=RegistryEntryDisabler.INTEGRATION
+                    )
+
     async_add_entities(entities)
 
 
 class HtdDndSwitch(SwitchEntity):
     should_poll = False
-    _attr_entity_registry_enabled_default = True
 
     def __init__(self, client, unique_id: str, zone: int, config_entry):
         self.client = client
         self.zone = zone
         self.config_entry = config_entry
         self._attr_unique_id = f"{unique_id}_zone_{zone}_dnd"
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        if self.config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False):
+            return self.zone in self.config_entry.data.get(CONF_ENABLED_ZONES, [])
+        return True
 
     @property
     def name(self) -> str:

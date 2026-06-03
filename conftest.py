@@ -33,3 +33,16 @@ class _NumberEntityStub:
 
 _number_mod.NumberEntity = _NumberEntityStub
 sys.modules["homeassistant.components.number"] = _number_mod
+
+# homeassistant.helpers.entity_registry needs a real RegistryEntryDisabler enum
+# so that disabled_by comparisons work in tests.
+from enum import Enum as _Enum
+
+class _RegistryEntryDisabler(str, _Enum):
+    INTEGRATION = "integration"
+    USER = "user"
+    CONFIG_ENTRY = "config_entry"
+
+_er_mod = MagicMock()
+_er_mod.RegistryEntryDisabler = _RegistryEntryDisabler
+sys.modules["homeassistant.helpers.entity_registry"] = _er_mod

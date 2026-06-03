@@ -33,3 +33,14 @@ class _NumberEntityStub:
 
 _number_mod.NumberEntity = _NumberEntityStub
 sys.modules["homeassistant.components.number"] = _number_mod
+
+# homeassistant.components.switch needs a real class for HtdDndSwitch to inherit from
+_switch_mod = MagicMock()
+
+class _SwitchEntityStub:
+    """Stub base — lets HtdDndSwitch be defined and instantiated in tests."""
+    should_poll = False
+    def async_write_ha_state(self): pass
+
+_switch_mod.SwitchEntity = _SwitchEntityStub
+sys.modules["homeassistant.components.switch"] = _switch_mod

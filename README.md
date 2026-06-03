@@ -88,4 +88,5 @@ htd:
 - https://github.com/steve28/mca66
 - http://www.brandonclaps.com/?p=173
 - https://github.com/lounsbrough/htd-mca-66-api
+- **[hikirsch/htd-home-assistant](https://github.com/hikirsch/htd-home-assistant)** — the upstream integration this fork is built on.
 - **Special thanks to [kingfetty](https://github.com/kingfetty/python-htd)** — whose foundational work on full Lync support (zone/source naming, DND, device discovery, and all-zone queries) made this integration significantly more capable.

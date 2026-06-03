@@ -14,7 +14,7 @@ from htd_client.constants import HtdDeviceKind
 from .const import DOMAIN, CONF_DEVICE_NAME
 from .utils import _async_cleanup_registry_entries
 
-PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER, Platform.NUMBER]
+PLATFORMS: list[Platform] = [Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.SWITCH]
 
 _LOGGER = logging.getLogger(__name__)
 

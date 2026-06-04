@@ -9,3 +9,8 @@ hass-working-directory
 
 node_modules/
 .vite/
+
+# Claude Code / Superpowers tooling — local only, never commit
+.claude/
+.superpowers/
+docs/superpowers/

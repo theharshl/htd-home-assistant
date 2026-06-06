@@ -1,7 +1,7 @@
 name: Bug Report
 description: Report a bug with the Home Theater Direct Home Assistant integration.
 assignees:
-  - hikirsch
+  - theharshl
 body:
   - type: markdown
     attributes:

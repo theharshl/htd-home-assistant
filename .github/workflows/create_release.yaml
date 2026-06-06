@@ -14,17 +14,15 @@ jobs:
 
       - name: Get manifest.json info
         id: manifest-info
-        run: echo "::set-output name=version::$(jq -r '.version' custom_components/htd/manifest.json)"
+        run: echo "version=$(jq -r '.version' custom_components/htd/manifest.json)" >> $GITHUB_OUTPUT
 
       - name: Check if version is already published
         run: |
           VERSION="${{ steps.manifest-info.outputs.version }}"
           echo "Version to check: $VERSION"
 
-          # Query the releases from GitHub API (or another registry if necessary)
-          RESPONSE=$(curl -s https://api.github.com/repos/hikirsch/htd-home-assistant/releases)
+          RESPONSE=$(curl -s https://api.github.com/repos/theharshl/htd-home-assistant/releases)
 
-          # Check if the version exists in the published releases
           if echo "$RESPONSE" | grep -q "\"tag_name\": \"v$VERSION\""; then
             echo "Version $VERSION has already been published. Failing the build."
             exit 1
@@ -42,5 +40,4 @@ jobs:
         with:
           name: v${{ steps.manifest-info.outputs.version }}
           tag_name: v${{ steps.manifest-info.outputs.version }}
-          draft: true
           files: htd.zip

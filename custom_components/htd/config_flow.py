@@ -399,9 +399,14 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
             self._connection_data = user_input
             return await self.async_step_zone_names()
 
+        if self.config_entry.data.get(CONF_PATH):
+            data_schema = get_serial_connection_settings_schema(self.config_entry)
+        else:
+            data_schema = get_connection_settings_schema(self.config_entry)
+
         return self.async_show_form(
             step_id='init',
-            data_schema=get_connection_settings_schema(self.config_entry),
+            data_schema=data_schema,
             last_step=False
         )
 
@@ -615,6 +620,22 @@ def get_connection_settings_schema(config_entry: ConfigEntry | None = None):
         {
             vol.Required(CONF_HOST, default=host): cv.string,
             vol.Required(CONF_PORT, default=port): cv.port,
+            vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
+        }
+    )
+
+
+def get_serial_connection_settings_schema(config_entry: ConfigEntry | None = None):
+    if config_entry is not None:
+        serial_address = config_entry.data.get(CONF_PATH)
+        device_name = config_entry.title
+    else:
+        serial_address = None
+        device_name = None
+
+    return vol.Schema(
+        {
+            vol.Required(CONF_PATH, default=serial_address): cv.string,
             vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
         }
     )

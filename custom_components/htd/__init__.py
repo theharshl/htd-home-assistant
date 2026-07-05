@@ -68,14 +68,20 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
-    host = config_entry.data.get(CONF_HOST)
-    port = config_entry.data.get(CONF_PORT)
+    serial_address = config_entry.data.get(CONF_PATH)
 
-    network_address = (host, port)
+    if serial_address:
+        client = await async_get_client(
+            serial_address=serial_address,
+        )
+    else:
+        host = config_entry.data.get(CONF_HOST)
+        port = config_entry.data.get(CONF_PORT)
+        network_address = (host, port)
 
-    client = await async_get_client(
-        network_address=network_address,
-    )
+        client = await async_get_client(
+            network_address=network_address,
+        )
 
     config_entry.runtime_data = client
 

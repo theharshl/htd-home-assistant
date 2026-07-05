@@ -1,12 +1,26 @@
 {
   "config": {
     "step": {
-      "user": {
+      "connection_type": {
+        "title": "Connection Type",
+        "description": "Step 1 of 7 — How is your HTD gateway connected?",
+        "data": {
+          "connection_type": "Connection Type"
+        }
+      },
+      "network_connection": {
         "title": "Home Theater Direct",
-        "description": "Enter your HTD gateway connection details.",
+        "description": "Step 2 of 7 — Enter your HTD gateway connection details.",
         "data": {
           "host": "Host name or IP Address",
           "port": "Port"
+        }
+      },
+      "serial_connection": {
+        "title": "Home Theater Direct",
+        "description": "Step 2 of 7 — Enter the serial device path for your HTD gateway. Look for a stable path under `/dev/serial/by-id/` (run `ls /dev/serial/by-id/` on the machine running Home Assistant) — these don't change across reboots. A path like `/dev/ttyUSB0` also works, but its number can shift if the adapter is unplugged/replugged or the system reboots.",
+        "data": {
+          "path": "Serial device path"
         }
       },
       "device": {
@@ -17,7 +31,7 @@
       },
       "zone_names": {
         "title": "Zone Names",
-        "description": "Step 3 of 6 — Leave a field blank to use the controller's default name for that zone.",
+        "description": "Step 4 of 7 — Leave a field blank to use the controller's default name for that zone.",
         "data": {
           "zone_1_name": "Zone 1", "zone_2_name": "Zone 2", "zone_3_name": "Zone 3",
           "zone_4_name": "Zone 4", "zone_5_name": "Zone 5", "zone_6_name": "Zone 6",
@@ -27,7 +41,7 @@
       },
       "zone_filter": {
         "title": "Zone Filter",
-        "description": "Step 4 of 6 — Choose which zones to create Home Assistant entities for. Unchecked zones will be disabled — they still exist in the entity registry and can be manually re-enabled at any time.\n\nIf all zones are checked, no filtering is applied.",
+        "description": "Step 5 of 7 — Choose which zones to create Home Assistant entities for. Unchecked zones will be disabled — they still exist in the entity registry and can be manually re-enabled at any time.\n\nIf all zones are checked, no filtering is applied.",
         "data": {
           "zone_1_enabled": "Zone 1", "zone_2_enabled": "Zone 2", "zone_3_enabled": "Zone 3",
           "zone_4_enabled": "Zone 4", "zone_5_enabled": "Zone 5", "zone_6_enabled": "Zone 6",
@@ -43,7 +57,7 @@
       },
       "source_names": {
         "title": "Source Names",
-        "description": "Step 5 of 6 — Leave a field blank to use the controller's default name for that source.",
+        "description": "Step 6 of 7 — Leave a field blank to use the controller's default name for that source.",
         "data": {
           "source_1_name": "Source 1", "source_2_name": "Source 2", "source_3_name": "Source 3",
           "source_4_name": "Source 4", "source_5_name": "Source 5", "source_6_name": "Source 6",
@@ -56,7 +70,7 @@
       },
       "source_filter_toggle": {
         "title": "Per-Zone Source Filtering",
-        "description": "Step 6 of 6 — Source filtering lets you control which sources appear in the source dropdown for each zone. This is a **whitelist** — only sources you check will be shown in that zone.\n\nBy default, filtering is disabled and all sources are visible on every zone. If you enable filtering below, you will be taken through each zone one at a time to configure its source list.\n\nYou can change this setting at any time via the integration's reconfigure option.",
+        "description": "Step 7 of 7 — Source filtering lets you control which sources appear in the source dropdown for each zone. This is a **whitelist** — only sources you check will be shown in that zone.\n\nBy default, filtering is disabled and all sources are visible on every zone. If you enable filtering below, you will be taken through each zone one at a time to configure its source list.\n\nYou can change this setting at any time via the integration's reconfigure option.",
         "data": {
           "source_filter_enabled": "Enable per-zone source filtering"
         }
@@ -97,7 +111,11 @@
         "data": {
           "host": "Host name or IP Address",
           "port": "Port",
+          "path": "Serial device path",
           "device_name": "Device name"
+        },
+        "data_description": {
+          "path": "For serial devices, prefer a stable path under /dev/serial/by-id/ over /dev/ttyUSBx."
         }
       },
       "zone_names": {

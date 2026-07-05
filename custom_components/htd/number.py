@@ -4,7 +4,12 @@ from homeassistant.const import CONF_UNIQUE_ID
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 
-from .const import CONF_ZONE_NAMES, CONF_ZONE_FILTER_ENABLED, CONF_ENABLED_ZONES, DOMAIN
+from .const import (
+    CONF_ZONE_NAMES,
+    CONF_ZONE_FILTER_ENABLED,
+    CONF_ENABLED_ZONES,
+    DOMAIN,
+)
 
 # Ranges as (min, max, step). String keys match HtdDeviceKind.value ("lync"/"mca").
 _RANGES: dict[str, dict[str, tuple[float, float, float]]] = {
@@ -29,6 +34,23 @@ def _eq_range(kind_value: str, control: str) -> tuple[float, float, float]:
 def _eq_enabled_default(control: str) -> bool:
     """Balance is hidden by default; bass and treble are shown."""
     return control != "balance"
+
+
+async def async_setup_platform(hass, _, async_add_entities, __=None):
+    """Set up EQ number entities for devices configured via YAML (e.g. serial)."""
+    htd_configs = hass.data[DOMAIN]
+    entities = []
+
+    for config in htd_configs:
+        unique_id = config[CONF_UNIQUE_ID]
+        client = config["client"]
+
+        for zone in range(1, client.get_zone_count() + 1):
+            for control in ("bass", "treble", "balance"):
+                entities.append(HtdEqNumber(client, unique_id, zone, control, None))
+
+    async_add_entities(entities)
+    return True
 
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -79,6 +101,8 @@ class HtdEqNumber(NumberEntity):
 
     @property
     def entity_registry_enabled_default(self) -> bool:
+        if self.config_entry is None:
+            return _eq_enabled_default(self.control)
         if self.config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False):
             if self.zone not in self.config_entry.data.get(CONF_ENABLED_ZONES, []):
                 return False
@@ -86,7 +110,7 @@ class HtdEqNumber(NumberEntity):
 
     @property
     def name(self) -> str:
-        overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {})
+        overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {}) if self.config_entry else {}
         zone_name = (
             overrides.get(str(self.zone))
             or self.client.get_zone_name(self.zone)

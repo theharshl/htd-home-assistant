@@ -7,6 +7,25 @@ from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 from .const import CONF_ZONE_NAMES, CONF_ZONE_FILTER_ENABLED, CONF_ENABLED_ZONES, DOMAIN
 
 
+async def async_setup_platform(hass, _, async_add_entities, __=None):
+    """Set up DND switch entities for devices configured via YAML (e.g. serial)."""
+    htd_configs = hass.data[DOMAIN]
+    entities = []
+
+    for config in htd_configs:
+        unique_id = config[CONF_UNIQUE_ID]
+        client = config["client"]
+
+        if client.model["kind"].value != "lync":
+            continue
+
+        for zone in range(1, client.get_zone_count() + 1):
+            entities.append(HtdDndSwitch(client, unique_id, zone, None))
+
+    async_add_entities(entities)
+    return True
+
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
     client = config_entry.runtime_data
     if client.model["kind"].value != "lync":
@@ -48,13 +67,15 @@ class HtdDndSwitch(SwitchEntity):
 
     @property
     def entity_registry_enabled_default(self) -> bool:
+        if self.config_entry is None:
+            return True
         if self.config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False):
             return self.zone in self.config_entry.data.get(CONF_ENABLED_ZONES, [])
         return True
 
     @property
     def name(self) -> str:
-        overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {})
+        overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {}) if self.config_entry else {}
         zone_name = (
             overrides.get(str(self.zone))
             or self.client.get_zone_name(self.zone)

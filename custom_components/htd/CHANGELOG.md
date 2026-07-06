@@ -1,3 +1,8 @@
+## [0.0.33] - 2026-07-05
+### Added
+- Serial connection support in the config flow: a new connection-type step lets you choose Network or Serial when adding the integration, with a dedicated serial path step for USB/RS-232 devices (issue #19)
+- Serial-configured devices now go through the same config-entry setup as network devices, gaining the options flow and zone/source naming/filtering that were previously network-only
+
 ## [0.0.32] - 2026-07-05
 ### Fixed
 - YAML/serial-configured devices (`htd:` config block) crashed on startup with "It's not possible to configure htd number/switch by adding platform: htd" — `number.py` and `switch.py` were missing the legacy `async_setup_platform` hook that `media_player.py` already had (issue #17)

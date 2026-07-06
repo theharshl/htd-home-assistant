@@ -5,7 +5,7 @@ import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow, OptionsFlowWithConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT, CONF_UNIQUE_ID
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PATH, CONF_PORT, CONF_UNIQUE_ID
 from homeassistant.core import callback, HomeAssistant
 from htd_client import async_get_model_info
 from htd_client.constants import HtdConstants
@@ -23,6 +23,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+CONF_CONNECTION_TYPE = "connection_type"
+CONNECTION_TYPE_NETWORK = "network"
+CONNECTION_TYPE_SERIAL = "serial"
+
 
 def configured_instances(hass: HomeAssistant):
     """Return a set of configured instances."""
@@ -37,6 +41,7 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
 
     host: str = None
     port: int = HtdConstants.DEFAULT_PORT
+    serial_address: str = None
     unique_id: str = None
     _device_name: str = None
     _model_info: dict = None
@@ -79,14 +84,35 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_NAME: f"{model_info["friendly_name"]} ({host})",
         }
 
-        return await self.async_step_custom_connection(new_user_input)
+        return await self.async_step_network_connection(new_user_input)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ):
-        return await self.async_step_custom_connection(user_input)
+        return await self.async_step_connection_type(user_input)
 
-    async def async_step_custom_connection(
+    async def async_step_connection_type(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        if user_input is not None:
+            if user_input[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SERIAL:
+                return await self.async_step_serial_connection()
+            return await self.async_step_network_connection()
+
+        return self.async_show_form(
+            step_id='connection_type',
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_CONNECTION_TYPE, default=CONNECTION_TYPE_NETWORK
+                ): vol.In({
+                    CONNECTION_TYPE_NETWORK: "Network (Wi-Fi / Ethernet gateway)",
+                    CONNECTION_TYPE_SERIAL: "Serial (USB / RS-232)",
+                }),
+            }),
+            last_step=False,
+        )
+
+    async def async_step_network_connection(
         self, user_input: dict[str, Any] | None = None
     ):
         errors = {}
@@ -113,6 +139,7 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             if success:
                 self.host = host
                 self.port = port
+                self.serial_address = None
                 self.unique_id = unique_id
 
                 return await self.async_step_device()
@@ -120,9 +147,49 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             errors['base'] = "no_connection"
 
         return self.async_show_form(
-            step_id='user',
+            step_id='network_connection',
             data_schema=get_connection_settings_schema(),
             errors=errors
+        )
+
+    async def async_step_serial_connection(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        errors = {}
+
+        if user_input is not None:
+            success = False
+
+            serial_address = user_input[CONF_PATH]
+            unique_id = "htd-serial-%s" % serial_address
+
+            try:
+                response = await async_get_model_info(serial_address=serial_address)
+
+                if response is not None:
+                    success = True
+
+            except Exception as e:
+                _LOGGER.error("Exception occurred while trying to connect to Htd Gateway")
+                _LOGGER.exception(e)
+                pass
+
+            if success:
+                self.serial_address = serial_address
+                self.host = None
+                self.port = None
+                self.unique_id = unique_id
+
+                return await self.async_step_device()
+
+            errors['base'] = "no_connection"
+
+        return self.async_show_form(
+            step_id='serial_connection',
+            data_schema=vol.Schema({
+                vol.Required(CONF_PATH): cv.string,
+            }),
+            errors=errors,
         )
 
     @staticmethod
@@ -135,8 +202,12 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             self._device_name = user_input.get(CONF_DEVICE_NAME, "")
             return await self.async_step_zone_names()
 
-        network_address = (self.host, self.port)
-        model_info = await async_get_model_info(network_address=network_address)
+        if self.serial_address:
+            model_info = await async_get_model_info(serial_address=self.serial_address)
+        else:
+            network_address = (self.host, self.port)
+            model_info = await async_get_model_info(network_address=network_address)
+
         if model_info is None:
             return self.async_abort(reason="unknown_model")
         self._model_info = model_info
@@ -289,11 +360,15 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     def _create_entry(self):
+        if self.serial_address:
+            connection_data = {CONF_PATH: self.serial_address}
+        else:
+            connection_data = {CONF_HOST: self.host, CONF_PORT: self.port}
+
         return self.async_create_entry(
             title=self._device_name,
             data={
-                CONF_HOST: self.host,
-                CONF_PORT: self.port,
+                **connection_data,
                 CONF_UNIQUE_ID: self.unique_id,
                 CONF_DEVICE_NAME: self._device_name,
                 CONF_ZONE_NAMES: self._zone_name_overrides or {},
@@ -324,9 +399,14 @@ class HtdOptionsFlowHandler(OptionsFlowWithConfigEntry):
             self._connection_data = user_input
             return await self.async_step_zone_names()
 
+        if self.config_entry.data.get(CONF_PATH):
+            data_schema = get_serial_connection_settings_schema(self.config_entry)
+        else:
+            data_schema = get_connection_settings_schema(self.config_entry)
+
         return self.async_show_form(
             step_id='init',
-            data_schema=get_connection_settings_schema(self.config_entry),
+            data_schema=data_schema,
             last_step=False
         )
 
@@ -540,6 +620,22 @@ def get_connection_settings_schema(config_entry: ConfigEntry | None = None):
         {
             vol.Required(CONF_HOST, default=host): cv.string,
             vol.Required(CONF_PORT, default=port): cv.port,
+            vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
+        }
+    )
+
+
+def get_serial_connection_settings_schema(config_entry: ConfigEntry | None = None):
+    if config_entry is not None:
+        serial_address = config_entry.data.get(CONF_PATH)
+        device_name = config_entry.title
+    else:
+        serial_address = None
+        device_name = None
+
+    return vol.Schema(
+        {
+            vol.Required(CONF_PATH, default=serial_address): cv.string,
             vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
         }
     )

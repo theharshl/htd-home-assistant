@@ -97,23 +97,21 @@ Download all the files from this repo and place them in your `config/custom_comp
 
 ### HACS
 
-Search for **Home Theater Direct** in the HACS integration catalog and install from there.
+This integration is [pending inclusion](https://github.com/hacs/default/pull/8266) in the default HACS store. Until then, add it as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/) in HACS using this repo's URL (category: Integration), then install **Home Theater Direct** from there.
 
 ### Configuration
 
-Go to **Settings → Devices & Services → Add Integration → Home Theater Direct**.
+Go to **Settings → Devices & Services → Add Integration → Home Theater Direct**, then choose how your gateway is connected: **Network** or **Serial**.
+
+#### Network connection
 
 The integration will attempt to auto-discover your device via DHCP. If it is not found automatically, enter the IP address and port (default: `10006`) manually.
 
 #### Serial (USB) connection
 
-If you are using a USB-to-serial adapter, configure the integration manually in `configuration.yaml`:
+Enter the serial device path for your HTD gateway. Prefer a stable path under `/dev/serial/by-id/` (run `ls /dev/serial/by-id/` on the machine running Home Assistant) over a path like `/dev/ttyUSB0`, whose number can shift if the adapter is unplugged/replugged or the system reboots.
 
-```yaml
-htd:
-  - device_name: Lync 6 over Serial
-    path: /dev/ttyUSB0
-```
+Serial devices get the same setup experience as network devices — device registry entry, options flow, zone/source naming, and zone/source filtering.
 
 ## Code Credits
 - https://github.com/dustinmcintire/htd-lync

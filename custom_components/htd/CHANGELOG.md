@@ -1,3 +1,10 @@
+## [0.0.34] - 2026-07-10
+### Fixed
+- Serial setup on cheap/slow USB-serial adapters was extremely unreliable — "Could not connect" / "unknown_model" during the config flow and "Failed to setup" after it, requiring many retries, again on every Home Assistant restart (issue #19, reported by @steve28). Three root causes fixed:
+  - `htd-client-ha` 0.1.4: the model probe read the serial reply with a single `read()` call, so a reply split across USB packets was misread as a failure; it now accumulates data until the reply matches, the line goes quiet, or a deadline expires (and no longer hangs forever when the device doesn't answer)
+  - `htd-client-ha` 0.1.4: probe retries re-opened the serial port each attempt — and every port open can DTR-reset the gateway, so retries kept resetting the device they were probing; retries now reuse a single open connection, and the persistent connection waits out the same settle delay before its first refresh command
+  - The device-naming step of the config flow probed the device a second time right after the connection-validation probe succeeded, and aborted the whole flow with "unknown_model" if that redundant probe lost the race against a resetting gateway; it now reuses the model info from the validation step
+
 ## [0.0.33] - 2026-07-05
 ### Added
 - Serial connection support in the config flow: a new connection-type step lets you choose Network or Serial when adding the integration, with a dedicated serial path step for USB/RS-232 devices (issue #19)

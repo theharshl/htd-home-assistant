@@ -1,3 +1,7 @@
+## [0.0.35] - 2026-07-10
+### Fixed
+- Zone control (volume/source/power changes) triggered a slew of "Bad sync buffer", "Bad checksum", and "Invalid command value" errors after a successful setup (issue #19, reported by @steve28). `htd-client-ha` 0.1.5: the response parser trusted the declared length of a frame that had already failed checksum validation, so a single dropped or corrupted byte from the serial adapter — which is expected occasionally on cheap USB-serial hardware — desynced the parser permanently instead of recovering on the next valid frame. It now resyncs by discarding only the malformed frame's header, the same recovery already used for unrecognized commands.
+
 ## [0.0.34] - 2026-07-10
 ### Fixed
 - Serial setup on cheap/slow USB-serial adapters was extremely unreliable — "Could not connect" / "unknown_model" during the config flow and "Failed to setup" after it, requiring many retries, again on every Home Assistant restart (issue #19, reported by @steve28). Three root causes fixed:

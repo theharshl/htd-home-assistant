@@ -65,6 +65,8 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
         if model_info is None:
             return self.async_abort(reason="unknown_model")
 
+        self._model_info = model_info
+
         _LOGGER.info("Model identified as: %s" % model_info)
 
         unique_id = "htd-%s" % discovery_info.macaddress
@@ -130,6 +132,7 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
 
                 if response is not None:
                     success = True
+                    self._model_info = response
 
             except Exception as e:
                 _LOGGER.error("Exception occurred while trying to connect to Htd Gateway")
@@ -168,6 +171,7 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
 
                 if response is not None:
                     success = True
+                    self._model_info = response
 
             except Exception as e:
                 _LOGGER.error("Exception occurred while trying to connect to Htd Gateway")
@@ -202,11 +206,18 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
             self._device_name = user_input.get(CONF_DEVICE_NAME, "")
             return await self.async_step_zone_names()
 
-        if self.serial_address:
-            model_info = await async_get_model_info(serial_address=self.serial_address)
-        else:
-            network_address = (self.host, self.port)
-            model_info = await async_get_model_info(network_address=network_address)
+        # reuse the model info from the connection-validation probe: every
+        # probe re-opens the connection, and on serial each port open can
+        # DTR-reset the gateway, so a redundant probe here risked aborting a
+        # flow whose validation had just succeeded
+        model_info = self._model_info
+
+        if model_info is None:
+            if self.serial_address:
+                model_info = await async_get_model_info(serial_address=self.serial_address)
+            else:
+                network_address = (self.host, self.port)
+                model_info = await async_get_model_info(network_address=network_address)
 
         if model_info is None:
             return self.async_abort(reason="unknown_model")

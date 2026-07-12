@@ -121,4 +121,5 @@ Serial devices get the same setup experience as network devices — device regis
 - http://www.brandonclaps.com/?p=173
 - https://github.com/lounsbrough/htd-mca-66-api
 - **[hikirsch/htd-home-assistant](https://github.com/hikirsch/htd-home-assistant)** — the upstream integration this fork is built on.
+- **Thank you to [steve28](https://github.com/steve28)** - for being patient with me and doing so much excellent testing for serial control on the MCA-66 system.
 - **Special thanks to [kingfetty](https://github.com/kingfetty/python-htd)** — whose foundational work on full Lync support (zone/source naming, DND, device discovery, and all-zone queries) made this integration significantly more capable.

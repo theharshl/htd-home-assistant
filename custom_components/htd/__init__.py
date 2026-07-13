@@ -7,9 +7,11 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform, CONF_PORT, CONF_HOST, CONF_PATH, CONF_UNIQUE_ID
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv, discovery
 from htd_client import async_get_client
 from htd_client.constants import HtdDeviceKind
+from htd_client.exceptions import HtdConnectionError
 
 from .const import DOMAIN, CONF_DEVICE_NAME
 from .utils import _async_cleanup_registry_entries
@@ -71,17 +73,27 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     serial_address = config_entry.data.get(CONF_PATH)
 
     if serial_address:
-        client = await async_get_client(
-            serial_address=serial_address,
-        )
+        try:
+            client = await async_get_client(
+                serial_address=serial_address,
+            )
+        except HtdConnectionError as e:
+            raise ConfigEntryNotReady(
+                f"Unable to connect to HTD device on {serial_address}: {e}"
+            ) from e
     else:
         host = config_entry.data.get(CONF_HOST)
         port = config_entry.data.get(CONF_PORT)
         network_address = (host, port)
 
-        client = await async_get_client(
-            network_address=network_address,
-        )
+        try:
+            client = await async_get_client(
+                network_address=network_address,
+            )
+        except HtdConnectionError as e:
+            raise ConfigEntryNotReady(
+                f"Unable to connect to HTD device at {network_address}: {e}"
+            ) from e
 
     config_entry.runtime_data = client
 

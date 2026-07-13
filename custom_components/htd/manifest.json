@@ -18,7 +18,7 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/theharshl/htd-home-assistant/issues",
   "requirements": [
-    "htd-client-ha==0.1.5"
+    "htd-client-ha==0.1.6"
   ],
-  "version": "0.0.35"
+  "version": "0.0.36"
 }

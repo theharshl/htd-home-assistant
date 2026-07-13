@@ -1,3 +1,14 @@
+## [0.0.36] - 2026-07-12
+### Fixed
+- Home Assistant startup failed permanently (requiring a manual reload once the device came
+  back) if the HTD amp/controller was off or unreachable at boot — a common setup for anyone who
+  doesn't leave the amp powered on 24/7 (issue #23, reported by @steve28). `htd-client-ha` 0.1.6:
+  the connection/model-probe failure now raises a distinct `HtdConnectionError` instead of a bare
+  `ValueError`/`OSError`. The integration catches it and raises Home Assistant's
+  `ConfigEntryNotReady`, which schedules an automatic retry with exponential backoff (5s up to a
+  10-minute cap) instead of marking setup as failed — once the device powers on, the next retry
+  succeeds with no user action needed.
+
 ## [0.0.35] - 2026-07-10
 ### Fixed
 - Zone control (volume/source/power changes) triggered a slew of "Bad sync buffer", "Bad checksum", and "Invalid command value" errors after a successful setup (issue #19, reported by @steve28). `htd-client-ha` 0.1.5: the response parser trusted the declared length of a frame that had already failed checksum validation, so a single dropped or corrupted byte from the serial adapter — which is expected occasionally on cheap USB-serial hardware — desynced the parser permanently instead of recovering on the next valid frame. It now resyncs by discarding only the malformed frame's header, the same recovery already used for unrecognized commands.

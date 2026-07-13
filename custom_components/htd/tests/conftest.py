@@ -8,6 +8,7 @@ _MOCK_MODULES = [
     "homeassistant.config_entries",
     "homeassistant.const",
     "homeassistant.core",
+    "homeassistant.exceptions",
     "homeassistant.helpers",
     "homeassistant.helpers.config_validation",
     "homeassistant.helpers.discovery",
@@ -16,6 +17,7 @@ _MOCK_MODULES = [
     "homeassistant.components.media_player.const",
     "htd_client",
     "htd_client.constants",
+    "htd_client.exceptions",
     "htd_client.models",
 ]
 
@@ -44,3 +46,20 @@ class _SwitchEntityStub:
 
 _switch_mod.SwitchEntity = _SwitchEntityStub
 sys.modules["homeassistant.components.switch"] = _switch_mod
+
+# homeassistant.exceptions.ConfigEntryNotReady must be a real Exception subclass —
+# raise/except/pytest.raises cannot operate on a MagicMock.
+class _ConfigEntryNotReady(Exception):
+    pass
+
+_exceptions_mod = MagicMock()
+_exceptions_mod.ConfigEntryNotReady = _ConfigEntryNotReady
+sys.modules["homeassistant.exceptions"] = _exceptions_mod
+
+# htd_client.exceptions.HtdConnectionError must likewise be a real Exception subclass.
+class _HtdConnectionError(Exception):
+    pass
+
+_htd_exceptions_mod = MagicMock()
+_htd_exceptions_mod.HtdConnectionError = _HtdConnectionError
+sys.modules["htd_client.exceptions"] = _htd_exceptions_mod

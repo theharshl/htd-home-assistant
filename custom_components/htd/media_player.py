@@ -244,21 +244,36 @@ class HtdDevice(MediaPlayerEntity):
     def source(self) -> str:
         return self._resolve_source_name(self.zone_info.source)
 
-    def _build_source_map(self) -> dict[str, int]:
-        if self.config_entry is None:
-            return {self._resolve_source_name(i): i for i in range(1, len(self.sources) + 1)}
-        filter_enabled = self.config_entry.data.get(CONF_SOURCE_FILTER_ENABLED, False)
-        filters = self.config_entry.data.get(CONF_ZONE_SOURCE_FILTERS, {})
+    def _allowed_source_indices(self) -> list[int]:
+        filter_enabled = (
+            self.config_entry.data.get(CONF_SOURCE_FILTER_ENABLED, False)
+            if self.config_entry is not None else False
+        )
+        filters = (
+            self.config_entry.data.get(CONF_ZONE_SOURCE_FILTERS, {})
+            if self.config_entry is not None else {}
+        )
         allowed = filters.get(str(self.zone)) if filter_enabled else None
+        return [
+            i for i in range(1, len(self.sources) + 1)
+            if allowed is None or not allowed or i in allowed
+        ]
+
+    def _build_source_map(self) -> dict[str, int]:
         result = {}
-        for i in range(1, len(self.sources) + 1):
-            if allowed is None or not allowed or i in allowed:
-                result[self._resolve_source_name(i)] = i
+        for i in self._allowed_source_indices():
+            # Insertion order matters: generic -> controller-native -> resolved/override,
+            # so the currently active name is written last and wins on any collision.
+            result[f"Source {i}"] = i
+            controller_name = self.client.get_source_name(i)
+            if controller_name:
+                result[controller_name] = i
+            result[self._resolve_source_name(i)] = i
         return result
 
     @property
     def source_list(self) -> list[str]:
-        return list(self._build_source_map().keys())
+        return [self._resolve_source_name(i) for i in self._allowed_source_indices()]
 
     @property
     def media_title(self):

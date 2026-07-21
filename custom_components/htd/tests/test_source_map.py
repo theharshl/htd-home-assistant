@@ -1,18 +1,26 @@
 from unittest.mock import MagicMock
 
 
-def _make_map_fn(filter_enabled, zone_filters, source_overrides=None, source_count=3, zone=1):
+def _make_map_fn(filter_enabled, zone_filters, source_overrides=None, controller_names=None, source_count=3, zone=1):
     """Replicate _build_source_map logic for isolated testing (no HA imports needed)."""
     source_overrides = source_overrides or {}
+    controller_names = controller_names or {}
+
+    def _controller_name(i):
+        return controller_names.get(str(i))
 
     def _resolve(i):
-        return source_overrides.get(str(i)) or f"Source {i}"
+        return source_overrides.get(str(i)) or _controller_name(i) or f"Source {i}"
 
     def build():
         allowed = zone_filters.get(str(zone)) if filter_enabled else None
         result = {}
         for i in range(1, source_count + 1):
             if allowed is None or not allowed or i in allowed:
+                result[f"Source {i}"] = i
+                controller_name = _controller_name(i)
+                if controller_name:
+                    result[controller_name] = i
                 result[_resolve(i)] = i
         return result
 
@@ -56,6 +64,42 @@ def test_source_name_override_appears_in_map():
     m = fn()
     assert "Spotify" in m
     assert m["Spotify"] == 2
+
+
+def test_map_contains_generic_and_resolved_keys_for_same_index():
+    fn = _make_map_fn(
+        filter_enabled=False, zone_filters={},
+        source_overrides={"2": "Spotify"}, source_count=3
+    )
+    m = fn()
+    assert m["Source 2"] == 2
+    assert m["Spotify"] == 2
+
+
+def test_map_contains_controller_native_key_when_distinct_from_override():
+    fn = _make_map_fn(
+        filter_enabled=False, zone_filters={},
+        source_overrides={"2": "Living Room"},
+        controller_names={"2": "AppleTV"},
+        source_count=3,
+    )
+    m = fn()
+    assert m["Source 2"] == 2
+    assert m["AppleTV"] == 2
+    assert m["Living Room"] == 2
+
+
+def test_filtered_source_has_no_aliases_in_map():
+    fn = _make_map_fn(
+        filter_enabled=True, zone_filters={"1": [1, 3]},
+        source_overrides={"2": "Living Room"},
+        controller_names={"2": "AppleTV"},
+        source_count=3, zone=1,
+    )
+    m = fn()
+    assert "Living Room" not in m
+    assert "AppleTV" not in m
+    assert "Source 2" not in m
 
 
 # --- Real-import coverage: HtdDevice source aliasing (issue #26) ---

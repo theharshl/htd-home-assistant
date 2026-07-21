@@ -1,3 +1,12 @@
+## [0.0.37] - 2026-07-21
+### Fixed
+- Renaming a source via the options flow broke `media_player.select_source` for any automation
+  or script that referenced the pre-rename name — the service call would silently no-op with no
+  error (issue #26). Source selection now resolves by the current name, the original generic
+  label (`"Source N"`), or the controller-reported name, whichever was used when the automation
+  was written. The dropdown shown in the UI (`source_list`) is unaffected and still shows exactly
+  one, current name per source.
+
 ## [0.0.36] - 2026-07-12
 ### Fixed
 - Home Assistant startup failed permanently (requiring a manual reload once the device came

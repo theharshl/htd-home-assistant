@@ -119,6 +119,7 @@ def test_generic_label_wins_over_colliding_override():
 # --- Real-import coverage: HtdDevice source aliasing (issue #26) ---
 
 import asyncio
+import logging
 from unittest.mock import AsyncMock
 
 from homeassistant.const import CONF_UNIQUE_ID
@@ -313,3 +314,43 @@ def test_source_id_round_trips_into_select_source():
     asyncio.run(device.async_select_source(device.extra_state_attributes["source_id"]))
 
     client.async_set_source.assert_called_once_with(1, 3)
+
+
+def test_select_source_warns_on_unresolvable_name(caplog):
+    client = _make_source_client()
+    entry = _make_source_entry()
+    device = _make_device(client, entry)
+
+    with caplog.at_level(logging.WARNING, logger="custom_components.htd.media_player"):
+        asyncio.run(device.async_select_source("Nonexistent"))
+
+    client.async_set_source.assert_not_called()
+    assert "Nonexistent" in caplog.text
+
+
+def test_select_source_warns_when_source_filtered_out_of_zone(caplog):
+    # The most likely real cause: the name is perfectly valid, just not
+    # available to this zone. Silence here is what made issue #26 hard to
+    # diagnose, so the warning must name the values that would have worked.
+    client = _make_source_client()
+    entry = _make_source_entry(filter_enabled=True, zone_filters={"1": [1, 3]})
+    device = _make_device(client, entry)
+
+    with caplog.at_level(logging.WARNING, logger="custom_components.htd.media_player"):
+        asyncio.run(device.async_select_source("Source 2"))
+
+    client.async_set_source.assert_not_called()
+    assert "Source 1" in caplog.text
+    assert "Source 3" in caplog.text
+
+
+def test_select_source_does_not_warn_on_success(caplog):
+    client = _make_source_client()
+    entry = _make_source_entry()
+    device = _make_device(client, entry)
+
+    with caplog.at_level(logging.WARNING, logger="custom_components.htd.media_player"):
+        asyncio.run(device.async_select_source("Source 2"))
+
+    client.async_set_source.assert_called_once_with(1, 2)
+    assert caplog.text == ""

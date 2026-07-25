@@ -293,9 +293,15 @@ class HtdDevice(MediaPlayerEntity):
         return self.source
 
     async def async_select_source(self, source: str) -> None:
-        controller_index = self._build_source_map().get(source)
-        if controller_index is not None:
-            await self.client.async_set_source(self.zone, controller_index)
+        source_map = self._build_source_map()
+        controller_index = source_map.get(source)
+        if controller_index is None:
+            _LOGGER.warning(
+                "zone %d: cannot select unknown source %r, valid values are %s",
+                self.zone, source, sorted(source_map),
+            )
+            return
+        await self.client.async_set_source(self.zone, controller_index)
 
     @property
     def icon(self):

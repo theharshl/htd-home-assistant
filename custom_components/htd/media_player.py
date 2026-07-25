@@ -244,6 +244,15 @@ class HtdDevice(MediaPlayerEntity):
     def source(self) -> str:
         return self._resolve_source_name(self.zone_info.source)
 
+    @property
+    def extra_state_attributes(self):
+        if self.zone_info is None:
+            return {}
+        # The controller's source index never changes when a source is renamed,
+        # so this gives automations a stable handle. "Source N" rather than the
+        # bare integer because select_source accepts that exact string back.
+        return {"source_id": f"Source {self.zone_info.source}"}
+
     def _allowed_source_indices(self) -> list[int]:
         filter_enabled = (
             self.config_entry.data.get(CONF_SOURCE_FILTER_ENABLED, False)

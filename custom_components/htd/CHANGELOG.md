@@ -5,8 +5,10 @@
   current display name and therefore changes whenever a source is renamed, which silently broke
   automations and dashboard templates comparing it to a literal name. `source_id` never changes,
   and because `media_player.select_source` already accepts `"Source N"`, it can be read from one
-  zone and fed straight back into a service call for another. See "Referencing sources in
-  automations" in the README for converting existing automations.
+  zone and fed straight back into a service call for another. Unlike `source`, it stays present
+  while a zone is off, reporting the last source it was on, so automations that should only match
+  while playing need a state check alongside it. See "Referencing sources in automations" in the
+  README for converting existing automations.
 
 ### Changed
 - `"Source N"` labels are now reserved when resolving a `media_player.select_source` call — `"Source

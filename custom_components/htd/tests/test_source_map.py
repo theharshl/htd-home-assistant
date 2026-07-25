@@ -247,3 +247,69 @@ def test_every_generic_label_maps_to_its_own_index():
 
     for i in range(1, 6):
         assert source_map[f"Source {i}"] == i
+
+
+def test_source_id_reports_generic_label_for_current_index():
+    client = _make_source_client()
+    entry = _make_source_entry()
+    device = _make_device(client, entry)
+    device.zone_info = MagicMock(source=3)
+
+    assert device.extra_state_attributes == {"source_id": "Source 3"}
+
+
+def test_source_id_survives_rename_while_source_follows_it():
+    # The whole point of the feature: renaming a source changes what a human
+    # sees, and must not change what an automation matches on.
+    client = _make_source_client()
+    entry = _make_source_entry(source_overrides={"3": "Spotify"})
+    device = _make_device(client, entry)
+    device.zone_info = MagicMock(source=3)
+
+    assert device.source == "Spotify"
+    assert device.extra_state_attributes["source_id"] == "Source 3"
+
+
+def test_source_id_follows_active_source_change():
+    client = _make_source_client()
+    entry = _make_source_entry()
+    device = _make_device(client, entry)
+
+    device.zone_info = MagicMock(source=1)
+    assert device.extra_state_attributes["source_id"] == "Source 1"
+
+    device.zone_info = MagicMock(source=2)
+    assert device.extra_state_attributes["source_id"] == "Source 2"
+
+
+def test_extra_state_attributes_empty_without_zone_info():
+    client = _make_source_client()
+    entry = _make_source_entry()
+    device = _make_device(client, entry)
+    device.zone_info = None
+
+    assert device.extra_state_attributes == {}
+
+
+def test_source_id_reports_current_source_even_when_filtered_out_of_zone():
+    # State must stay truthful: a source filter restricts what this zone can be
+    # *switched to*, it does not change what the zone is actually playing.
+    client = _make_source_client()
+    entry = _make_source_entry(filter_enabled=True, zone_filters={"1": [1, 3]})
+    device = _make_device(client, entry)
+    device.zone_info = MagicMock(source=2)
+
+    assert device.extra_state_attributes["source_id"] == "Source 2"
+
+
+def test_source_id_round_trips_into_select_source():
+    # An automation can read source_id off one zone and feed it straight back
+    # into select_source on another, with no name lookup in between.
+    client = _make_source_client(controller_names={3: "AppleTV"})
+    entry = _make_source_entry(source_overrides={"3": "Spotify"})
+    device = _make_device(client, entry)
+    device.zone_info = MagicMock(source=3)
+
+    asyncio.run(device.async_select_source(device.extra_state_attributes["source_id"]))
+
+    client.async_set_source.assert_called_once_with(1, 3)

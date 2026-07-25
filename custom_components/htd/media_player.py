@@ -261,14 +261,18 @@ class HtdDevice(MediaPlayerEntity):
 
     def _build_source_map(self) -> dict[str, int]:
         result = {}
-        for i in self._allowed_source_indices():
-            # Insertion order matters: generic -> controller-native -> resolved/override,
-            # so the currently active name is written last and wins on any collision.
-            result[f"Source {i}"] = i
+        allowed = self._allowed_source_indices()
+        for i in allowed:
+            # Insertion order matters: controller-native -> resolved/override, so the
+            # currently active name is written last and wins on a collision between them.
             controller_name = self.client.get_source_name(i)
             if controller_name:
                 result[controller_name] = i
             result[self._resolve_source_name(i)] = i
+        # Generic labels are reserved: "Source N" always resolves to index N, so the
+        # source_id attribute round-trips even if a display name collides with one.
+        for i in allowed:
+            result[f"Source {i}"] = i
         return result
 
     @property

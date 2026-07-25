@@ -13,15 +13,19 @@ def _make_map_fn(filter_enabled, zone_filters, source_overrides=None, controller
         return source_overrides.get(str(i)) or _controller_name(i) or f"Source {i}"
 
     def build():
-        allowed = zone_filters.get(str(zone)) if filter_enabled else None
+        allowed_filter = zone_filters.get(str(zone)) if filter_enabled else None
+        allowed = [
+            i for i in range(1, source_count + 1)
+            if allowed_filter is None or not allowed_filter or i in allowed_filter
+        ]
         result = {}
-        for i in range(1, source_count + 1):
-            if allowed is None or not allowed or i in allowed:
-                result[f"Source {i}"] = i
-                controller_name = _controller_name(i)
-                if controller_name:
-                    result[controller_name] = i
-                result[_resolve(i)] = i
+        for i in allowed:
+            controller_name = _controller_name(i)
+            if controller_name:
+                result[controller_name] = i
+            result[_resolve(i)] = i
+        for i in allowed:
+            result[f"Source {i}"] = i
         return result
 
     return build
@@ -100,6 +104,16 @@ def test_filtered_source_has_no_aliases_in_map():
     assert "Living Room" not in m
     assert "AppleTV" not in m
     assert "Source 2" not in m
+
+
+def test_generic_label_wins_over_colliding_override():
+    fn = _make_map_fn(
+        filter_enabled=False, zone_filters={},
+        source_overrides={"5": "Source 3"}, source_count=5,
+    )
+    m = fn()
+    assert m["Source 3"] == 3
+    assert m["Source 5"] == 5
 
 
 # --- Real-import coverage: HtdDevice source aliasing (issue #26) ---
@@ -209,3 +223,27 @@ def test_source_list_respects_filter():
     device = _make_device(client, entry)
 
     assert device.source_list == ["Source 1", "Source 3"]
+
+
+def test_generic_label_wins_over_colliding_display_name():
+    # Source 5's display name has been overridden to the literal label of source 3.
+    # "Source 3" must still select source 3 — that string is the stable handle
+    # exposed as the source_id attribute, so it cannot be hijacked by a rename.
+    client = _make_source_client()
+    entry = _make_source_entry(source_overrides={"5": "Source 3"})
+    device = _make_device(client, entry, source_count=5)
+
+    asyncio.run(device.async_select_source("Source 3"))
+
+    client.async_set_source.assert_called_once_with(1, 3)
+
+
+def test_every_generic_label_maps_to_its_own_index():
+    client = _make_source_client(controller_names={2: "AppleTV"})
+    entry = _make_source_entry(source_overrides={"5": "Source 3", "2": "Living Room"})
+    device = _make_device(client, entry, source_count=5)
+
+    source_map = device._build_source_map()
+
+    for i in range(1, 6):
+        assert source_map[f"Source {i}"] == i

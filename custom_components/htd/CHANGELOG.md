@@ -1,3 +1,29 @@
+## [0.0.38] - 2026-07-25
+### Added
+- A `source_id` state attribute on every zone's `media_player` entity, holding the source's fixed
+  position on the controller as `"Source N"` (issue #27). The existing `source` attribute shows the
+  current display name and therefore changes whenever a source is renamed, which silently broke
+  automations and dashboard templates comparing it to a literal name. `source_id` never changes,
+  and because `media_player.select_source` already accepts `"Source N"`, it can be read from one
+  zone and fed straight back into a service call for another. Unlike `source`, it stays present
+  while a zone is off, reporting the last source it was on, so automations that should only match
+  while playing need a state check alongside it. See "Referencing sources in automations" in the
+  README for converting existing automations.
+
+### Changed
+- `"Source N"` labels are now reserved when resolving a `media_player.select_source` call — `"Source
+  3"` always selects source 3, even if a different source has been given that exact display name.
+  This is what makes `source_id` safe to act on. Consequence: a source whose display name is
+  another source's generic label can no longer be selected by that name, so avoid naming sources
+  this way.
+
+### Fixed
+- `media_player.select_source` no longer fails completely silently when a source name cannot be
+  matched — a typo, a source filtered out of that zone, or a name predating the controller's own
+  naming. It now logs a warning naming the zone, the unmatched value, and the values that would
+  have worked. The original report behind issue #26 was that "no error is thrown, things just stop
+  working"; `0.0.37` fixed the matching, and this makes the remaining failures diagnosable.
+
 ## [0.0.37] - 2026-07-21
 ### Fixed
 - Renaming a source via the options flow broke `media_player.select_source` for any automation

@@ -244,6 +244,15 @@ class HtdDevice(MediaPlayerEntity):
     def source(self) -> str:
         return self._resolve_source_name(self.zone_info.source)
 
+    @property
+    def extra_state_attributes(self):
+        if self.zone_info is None:
+            return {}
+        # The controller's source index never changes when a source is renamed,
+        # so this gives automations a stable handle. "Source N" rather than the
+        # bare integer because select_source accepts that exact string back.
+        return {"source_id": f"Source {self.zone_info.source}"}
+
     def _allowed_source_indices(self) -> list[int]:
         filter_enabled = (
             self.config_entry.data.get(CONF_SOURCE_FILTER_ENABLED, False)
@@ -261,14 +270,18 @@ class HtdDevice(MediaPlayerEntity):
 
     def _build_source_map(self) -> dict[str, int]:
         result = {}
-        for i in self._allowed_source_indices():
-            # Insertion order matters: generic -> controller-native -> resolved/override,
-            # so the currently active name is written last and wins on any collision.
-            result[f"Source {i}"] = i
+        allowed = self._allowed_source_indices()
+        for i in allowed:
+            # Insertion order matters: controller-native -> resolved/override, so the
+            # currently active name is written last and wins on a collision between them.
             controller_name = self.client.get_source_name(i)
             if controller_name:
                 result[controller_name] = i
             result[self._resolve_source_name(i)] = i
+        # Generic labels are reserved: "Source N" always resolves to index N, so the
+        # source_id attribute round-trips even if a display name collides with one.
+        for i in allowed:
+            result[f"Source {i}"] = i
         return result
 
     @property
@@ -280,9 +293,15 @@ class HtdDevice(MediaPlayerEntity):
         return self.source
 
     async def async_select_source(self, source: str) -> None:
-        controller_index = self._build_source_map().get(source)
-        if controller_index is not None:
-            await self.client.async_set_source(self.zone, controller_index)
+        source_map = self._build_source_map()
+        controller_index = source_map.get(source)
+        if controller_index is None:
+            _LOGGER.warning(
+                "zone %d: cannot select unknown source %r, valid values are %s",
+                self.zone, source, sorted(source_map),
+            )
+            return
+        await self.client.async_set_source(self.zone, controller_index)
 
     @property
     def icon(self):

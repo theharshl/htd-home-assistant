@@ -36,6 +36,33 @@ Zone and source names can be customized during initial setup or at any time via 
 
 Both are optional — leave fields blank to keep the controller's names.
 
+### Referencing sources in automations
+
+The `source` attribute always shows a source's **current display name**, so renaming a source changes it — and any automation, script, or dashboard template comparing it to a literal name silently stops matching.
+
+Every zone's `media_player` entity also exposes a `source_id` attribute that does **not** change when you rename a source. It holds the source's fixed position on the controller, as `"Source N"`:
+
+```yaml
+- condition: template
+  value_template: "{{ state_attr('media_player.kitchen', 'source_id') == 'Source 3' }}"
+```
+
+Because `media_player.select_source` also accepts `"Source N"`, you can read it from one zone and act on it directly in another, with no lookup in between:
+
+```yaml
+- service: media_player.select_source
+  target:
+    entity_id: media_player.den
+  data:
+    source: "{{ state_attr('media_player.kitchen', 'source_id') }}"
+```
+
+> **Zones that are off:** unlike `source`, `source_id` stays present when a zone is powered off, reporting the last source it was on. If your automation should only match while the zone is playing, pair it with a state check: `is_state('media_player.kitchen', 'on') and state_attr('media_player.kitchen', 'source_id') == 'Source 3'`.
+
+**Already have automations matching on `source`?** Replace `state_attr(entity, 'source') == 'sonos'` with `state_attr(entity, 'source_id') == 'Source 14'`, using the source's number as shown in the integration's settings. Nothing breaks if you don't — `source` behaves exactly as it always has — but those automations stay vulnerable to the next rename.
+
+> **Avoid naming a source after another source's generic label** (giving source 5 the display name `"Source 3"`, for example). `"Source N"` always refers to source N, so a source named this way cannot be selected by that name.
+
 ### Home Assistant entity name overrides
 
 If you have manually renamed an entity directly in Home Assistant (via **Settings → Devices & Services → Entities**), that name takes precedence over whatever the integration provides. The integration cannot override a name you have set manually.

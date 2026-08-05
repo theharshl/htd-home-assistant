@@ -124,7 +124,21 @@ Download all the files from this repo and place them in your `config/custom_comp
 
 ### HACS
 
-This integration is [pending inclusion](https://github.com/hacs/default/pull/8266) in the default HACS store. Until then, add it as a [custom repository](https://hacs.xyz/docs/faq/custom_repositories/) in HACS using this repo's URL (category: Integration), then install **Home Theater Direct** from there.
+This integration is available in the default HACS store. In HACS, go to **Integrations → Explore & Download Repositories**, search for **Home Theater Direct**, and install it.
+
+### Migrating from a Manual Installation to HACS
+
+If you previously installed this integration by copying files into `custom_components/htd/`, you can switch to HACS without losing your setup. Your zones, sources, names, and filtering are stored in Home Assistant's own configuration, not in the integration files, so swapping the code in place preserves all of it.
+
+1. **Do not remove the integration** via **Settings → Devices & Services** — doing so deletes its configuration and you'd have to set it up from scratch. Leave the existing entry alone.
+2. Back up your current manual copy instead of deleting it, in case you need to roll back:
+   ```
+   mv config/custom_components/htd config/custom_components/htd.bak
+   ```
+3. In HACS, install **Home Theater Direct** as described above. This writes fresh files to `custom_components/htd/`.
+4. Restart Home Assistant.
+5. Confirm the integration still appears under **Settings → Devices & Services** with your existing entities, names, and options unchanged, and check the logs for errors.
+6. Once you've confirmed everything works, delete the backup folder: `rm -rf config/custom_components/htd.bak`
 
 ### Configuration
 

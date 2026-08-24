@@ -63,3 +63,34 @@ class _HtdConnectionError(Exception):
 _htd_exceptions_mod = MagicMock()
 _htd_exceptions_mod.HtdConnectionError = _HtdConnectionError
 sys.modules["htd_client.exceptions"] = _htd_exceptions_mod
+
+# homeassistant.helpers.restore_state.RestoreEntity — real class so entities can inherit it
+# and tests can stub async_get_last_state per instance.
+class _RestoreEntityStub:
+    """Stub base — lets restore-capable entities be defined and instantiated in tests."""
+
+    async def async_get_last_state(self):
+        return None
+
+    async def async_added_to_hass(self):
+        return None
+
+_restore_mod = MagicMock()
+_restore_mod.RestoreEntity = _RestoreEntityStub
+sys.modules["homeassistant.helpers.restore_state"] = _restore_mod
+
+# homeassistant.components.number.RestoreNumber — same, for the EQ sliders.
+class _RestoreNumberStub(_NumberEntityStub, _RestoreEntityStub):
+    """Stub base — lets HtdEqNumber inherit RestoreNumber in tests."""
+
+    async def async_get_last_number_data(self):
+        return None
+
+_number_mod.RestoreNumber = _RestoreNumberStub
+
+# homeassistant.exceptions.HomeAssistantError must be a real Exception subclass —
+# raise/except/pytest.raises cannot operate on a MagicMock.
+class _HomeAssistantError(Exception):
+    pass
+
+_exceptions_mod.HomeAssistantError = _HomeAssistantError

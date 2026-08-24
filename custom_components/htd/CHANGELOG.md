@@ -1,3 +1,45 @@
+## [0.0.39] - 2026-08-22
+### Upgrade note — read this first
+This release will appear to change nothing until your amplifier has been reachable once. The
+fix depends on the amplifier's model being recorded in the config entry, and existing entries
+do not have it yet. It is written on the first successful connection after upgrading; every
+restart after that works with the amplifier powered off. Until then, behavior is unchanged.
+
+### Added
+- HTD entities are now created on startup even when the amplifier is powered off (issue #30,
+  an extension of #23). Previously the integration re-probed the amplifier for its model on
+  every setup and never stored the answer, so with the device off it could not determine the
+  zone or source counts and created no entities at all — leaving every HTD card `Unavailable`,
+  in some reports for days. The detected model is now persisted, entity creation no longer
+  needs a live device, and the connection is established in the background with a retry
+  backoff.
+- An opt-in **Restore last known state when the device is offline** option in the integration's
+  options flow, off by default. With it enabled, `media_player`, `number` and `switch` entities
+  report their last known values instead of `Unavailable` during an outage, flagged as assumed
+  state. See "Offline Behavior" in the README, including why a restored value can be wrong.
+- Controller-reported zone and source names are cached in the config entry. Without this, a
+  single offline restart would permanently overwrite the registry's stored name for every zone
+  with `Zone N`, because Home Assistant passes the entity's name to the registry as
+  `original_name`.
+
+### Changed
+- Commands issued while the amplifier is unreachable now raise a visible `HomeAssistantError`
+  and appear in automation traces, instead of failing with an opaque internal error. Commands
+  are not queued for replay.
+- Requires `htd-client-ha` 0.1.8.
+
+### Fixed
+- A dropped connection now repaints entity cards. Every platform sets `should_poll = False` and
+  the library never notified subscribers of a transport state change, so cards kept showing
+  stale live values for the whole outage.
+- Removed a `HtdDevice.enabled` property that shadowed Home Assistant's reserved
+  `Entity.enabled`. Home Assistant reads that property to decide whether an entity joins the
+  state machine and drives it from the entity registry, so overriding it both blocked offline
+  entities and prevented the zone-filter feature (0.0.30) from hiding a zone. The controller's
+  own zone-enabled flag is now expressed through entity availability instead.
+- Unloading or reloading a config entry now disconnects the client and cancels its background
+  retry loop, instead of leaving a task dialing hardware Home Assistant no longer manages.
+
 ## [0.0.38] - 2026-07-25
 ### Added
 - A `source_id` state attribute on every zone's `media_player` entity, holding the source's fixed

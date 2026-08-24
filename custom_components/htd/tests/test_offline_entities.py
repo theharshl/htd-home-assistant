@@ -321,3 +321,126 @@ def test_an_offline_source_falls_back_to_its_cached_controller_name():
     device = HtdDevice("uid", "HTD", 1, [], client, entry)
 
     assert device._resolve_source_name(2) == "turntable"
+
+
+# --- number and switch ---
+
+from custom_components.htd.number import HtdEqNumber
+from custom_components.htd.switch import HtdDndSwitch
+
+
+def _eq_client(*, connected=False, zone_names=None):
+    client = MagicMock()
+    client.model = {"zones": 12, "kind": MagicMock(value="lync")}
+    client.connected = connected
+    client.ready = connected
+    client.has_zone_data = MagicMock(return_value=connected)
+    client.get_zone = MagicMock(return_value=MagicMock(enabled=True, bass=4.0, dnd=True))
+    client.get_zone_name = MagicMock(side_effect=lambda z: (zone_names or {}).get(z))
+    return client
+
+
+def test_number_restores_its_last_value_offline():
+    """A zone card showing "Off" above "Bass: Unavailable" reads as more broken than the bug
+    this fixes, which is why restoration covers all three platforms or none."""
+    client = _eq_client(connected=False)
+    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number._restored_value = 4.0
+
+    assert number.available is True
+    assert number.assumed_state is True
+    assert number.native_value == 4.0
+
+
+def test_number_is_unavailable_offline_with_restore_off():
+    """The default must stay today's semantics: no invented values unless asked for."""
+    client = _eq_client(connected=False)
+    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=False))
+
+    assert number.available is False
+
+
+def test_number_prefers_live_data_over_the_restored_value():
+    """Once the amplifier is back the restored value must be dropped immediately, or a card
+    keeps showing a stale slider position that no longer matches the hardware."""
+    client = _eq_client(connected=True)
+    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number._restored_value = -8.0
+
+    assert number.native_value == 4.0
+    assert number.assumed_state is False
+
+
+def test_setting_a_number_while_offline_raises_a_visible_error():
+    """A slider that snaps back with no explanation is the worst of both worlds."""
+    client = _eq_client(connected=False)
+    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(number.async_set_native_value(3.0))
+
+
+def test_number_falls_back_to_the_cached_zone_name():
+    """Same registry-overwrite hazard as media_player: the EQ entity's name embeds the zone
+    name, so an offline restart would rewrite "Kitchen - Bass" to "Zone 3 - Bass"."""
+    client = _eq_client(connected=False)
+    entry = _mp_entry(cached_zones={"3": "kitchen"})
+    number = HtdEqNumber(client, "uid", 3, "bass", entry)
+
+    assert number.name == "kitchen - Bass"
+
+
+def test_switch_restores_its_last_state_offline():
+    """DND is Lync-only and lives on the same device card as the zone's media player."""
+    client = _eq_client(connected=False)
+    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+    switch._restored_is_on = True
+
+    assert switch.available is True
+    assert switch.assumed_state is True
+    assert switch.is_on is True
+
+
+def test_switch_is_unavailable_offline_with_restore_off():
+    """Default semantics, unchanged."""
+    client = _eq_client(connected=False)
+    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=False))
+
+    assert switch.available is False
+
+
+def test_toggling_a_switch_while_offline_raises_a_visible_error():
+    """Both directions — a DND toggle silently dropped is an automation that thinks it
+    silenced a room and did not."""
+    client = _eq_client(connected=False)
+    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(switch.async_turn_on())
+
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(switch.async_turn_off())
+
+
+def test_number_do_update_repaints_without_zone_data():
+    """Same reason as media_player: the connection_lost broadcast must actually repaint."""
+    client = _eq_client(connected=False)
+    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    written = []
+    number.async_write_ha_state = lambda: written.append(True)
+
+    number._do_update(None)
+
+    assert written == [True]
+
+
+def test_switch_do_update_repaints_without_zone_data():
+    """Same reason again."""
+    client = _eq_client(connected=False)
+    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+    written = []
+    switch.async_write_ha_state = lambda: written.append(True)
+
+    switch._do_update(None)
+
+    assert written == [True]

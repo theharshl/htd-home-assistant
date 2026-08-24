@@ -116,6 +116,52 @@ Each Lync zone has a **DND switch** entity. When DND is on for a zone:
 
 DND state is read from and written to the controller. Toggling the switch in Home Assistant sends the command immediately.
 
+## Offline Behavior
+
+If your amplifier is powered off when Home Assistant restarts, HTD entities are created
+anyway, using the model detected the last time the two were able to talk. Before `0.0.39`
+the integration re-asked the amplifier what it was on every startup, so with the amplifier
+off it could not tell how many zones or sources existed and created no entities at all —
+every HTD card showed `Unavailable`, sometimes for days.
+
+**Upgrading? This will appear to do nothing at first.** The fix relies on the amplifier's
+model having been recorded, and existing config entries do not have it yet. The first time
+Home Assistant successfully connects after upgrading, the model is written to the config
+entry, and every restart from then on works with the amplifier off. Until that one
+successful connection, behavior is exactly what it was before.
+
+**First-time setup still requires a powered-on device.** Adding the integration probes the
+amplifier to identify it; there is no way around that on a new install.
+
+### Restoring last known state
+
+By default, entities that have no live data report `Unavailable` — the same as before, just
+with the entities now present rather than missing. To have them show what the zone was doing
+the last time Home Assistant could see it, enable **Restore last known state when the device
+is offline** in the integration's options (Settings → Devices & Services → Home Theater
+Direct → Configure).
+
+With it on, a zone that was off reads `off` instead of `Unavailable`, its volume, mute state
+and source come back, and the same applies to the EQ sliders and the DND switches. Home
+Assistant marks these entities as *assumed state*, which is why the card shows explicit
+on/off buttons instead of a single toggle — it is telling you the value may be stale.
+
+**A restored value can be wrong.** If someone turns a zone on at the keypad while Home
+Assistant is down, Home Assistant will keep reading `off` until the amplifier reconnects.
+That is inherent to showing a remembered value, which is why the option is off by default.
+
+### Controls while offline
+
+Turning a zone on, changing volume, selecting a source, moving an EQ slider or toggling DND
+while the amplifier is unreachable fails with a visible error, and the failure appears in
+automation traces. Commands are deliberately **not** queued for later — a "turn on the
+kitchen" firing hours later when the amplifier happens to be powered for something else is a
+worse outcome than an error you can see.
+
+When the amplifier comes back, the integration reconnects on its own (retrying every second
+at first, backing off to once a minute) and entities switch from restored to live values
+without a restart.
+
 ## Installation
 
 ### Manually

@@ -116,7 +116,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     config_entry.runtime_data = client
 
     if client.connected:
-        await _async_cache_names(client)
+        try:
+            await _async_cache_names(client)
+        except HtdConnectionError:
+            # Best-effort by design: the cache converges one restart later. Letting this
+            # propagate would mark the entry SETUP_ERROR (unlike ConfigEntryNotReady, not
+            # retried) and leak the retry task connection_lost has already armed, since
+            # async_unload_entry would never run to cancel it.
+            _LOGGER.debug("Connection dropped while caching names; will retry on next setup")
 
     # ORDERING IS LOAD-BEARING: async_update_entry fires the update listener, and
     # async_update_listener reloads the entry. Everything that writes to entry.data during
@@ -223,9 +230,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-    client = getattr(entry, "runtime_data", None)
-    if client is not None:
-        # also cancels the library's background retry loop
-        client.disconnect()
+    if unloaded:
+        client = getattr(entry, "runtime_data", None)
+        if client is not None:
+            # also cancels the library's background retry loop
+            client.disconnect()
 
     return unloaded

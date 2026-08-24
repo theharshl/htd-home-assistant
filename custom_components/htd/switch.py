@@ -1,10 +1,18 @@
 """DND (Do Not Disturb) per-zone switch entity for HTD Lync devices."""
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import CONF_UNIQUE_ID
+from homeassistant.const import CONF_UNIQUE_ID, STATE_ON
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
+from homeassistant.helpers.restore_state import RestoreEntity
 
-from .const import CONF_ZONE_NAMES, CONF_ZONE_FILTER_ENABLED, CONF_ENABLED_ZONES, DOMAIN
+from .const import (
+    CONF_ZONE_NAMES,
+    CONF_CACHED_ZONE_NAMES,
+    CONF_ZONE_FILTER_ENABLED,
+    CONF_ENABLED_ZONES,
+    DOMAIN,
+)
+from .entity import HtdEntity
 
 
 async def async_setup_platform(hass, _, async_add_entities, __=None):
@@ -56,8 +64,9 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities(entities)
 
 
-class HtdDndSwitch(SwitchEntity):
+class HtdDndSwitch(HtdEntity, SwitchEntity, RestoreEntity):
     should_poll = False
+    _restored_is_on = None
 
     def __init__(self, client, unique_id: str, zone: int, config_entry):
         self.client = client
@@ -76,35 +85,52 @@ class HtdDndSwitch(SwitchEntity):
     @property
     def name(self) -> str:
         overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {}) if self.config_entry else {}
+        cached = self.config_entry.data.get(CONF_CACHED_ZONE_NAMES, {}) if self.config_entry else {}
         zone_name = (
             overrides.get(str(self.zone))
             or self.client.get_zone_name(self.zone)
+            or cached.get(str(self.zone))
             or f"Zone {self.zone}"
         )
         return f"{zone_name} - DND"
 
     @property
     def is_on(self) -> bool | None:
-        if not self.client.has_zone_data(self.zone):
-            return None
-        return self.client.get_zone(self.zone).dnd
+        zone_info = self._live_zone()
+
+        if zone_info is not None:
+            return zone_info.dnd
+
+        if self._restore_enabled:
+            return self._restored_is_on
+
+        return None
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self.client.async_set_dnd(self.zone, True)
+        await self._async_command(
+            lambda: self.client.async_set_dnd(self.zone, True), "enable do not disturb"
+        )
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.client.async_set_dnd(self.zone, False)
+        await self._async_command(
+            lambda: self.client.async_set_dnd(self.zone, False), "disable do not disturb"
+        )
 
     def _do_update(self, zone: int) -> None:
-        if zone is None and not self.client.has_zone_data(self.zone):
-            return
         if zone is not None and zone != 0 and zone != self.zone:
             return
-        if not self.client.has_zone_data(self.zone):
-            return
+
+        # unconditional: see the equivalent comment in number.py
         self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+
+        if self._restore_enabled:
+            last = await self.async_get_last_state()
+            if last is not None:
+                self._restored_is_on = last.state == STATE_ON
+
         await self.client.async_subscribe(self._do_update)
 
     async def async_will_remove_from_hass(self) -> None:

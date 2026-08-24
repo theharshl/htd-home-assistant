@@ -1,15 +1,17 @@
 """EQ controls (bass, treble, balance) as NumberEntity sliders for HTD zones."""
-from homeassistant.components.number import NumberEntity, NumberMode
+from homeassistant.components.number import NumberMode, RestoreNumber
 from homeassistant.const import CONF_UNIQUE_ID
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 
 from .const import (
     CONF_ZONE_NAMES,
+    CONF_CACHED_ZONE_NAMES,
     CONF_ZONE_FILTER_ENABLED,
     CONF_ENABLED_ZONES,
     DOMAIN,
 )
+from .entity import HtdEntity
 
 # Ranges as (min, max, step). String keys match HtdDeviceKind.value ("lync"/"mca").
 _RANGES: dict[str, dict[str, tuple[float, float, float]]] = {
@@ -83,9 +85,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities(entities)
 
 
-class HtdEqNumber(NumberEntity):
+class HtdEqNumber(HtdEntity, RestoreNumber):
     _attr_mode = NumberMode.SLIDER
     should_poll = False
+    _restored_value = None
 
     def __init__(self, client, unique_id: str, zone: int, control: str, config_entry):
         self.client = client
@@ -111,38 +114,54 @@ class HtdEqNumber(NumberEntity):
     @property
     def name(self) -> str:
         overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {}) if self.config_entry else {}
+        cached = self.config_entry.data.get(CONF_CACHED_ZONE_NAMES, {}) if self.config_entry else {}
         zone_name = (
             overrides.get(str(self.zone))
             or self.client.get_zone_name(self.zone)
+            or cached.get(str(self.zone))
             or f"Zone {self.zone}"
         )
         return f"{zone_name} - {self.control.capitalize()}"
 
     @property
     def native_value(self) -> float | None:
-        if not self.client.has_zone_data(self.zone):
-            return None
-        return getattr(self.client.get_zone(self.zone), self.control)
+        zone_info = self._live_zone()
+
+        if zone_info is not None:
+            return getattr(zone_info, self.control)
+
+        if self._restore_enabled:
+            return self._restored_value
+
+        return None
 
     async def async_set_native_value(self, value: float) -> None:
         int_val = round(value)
         if self.control == "bass":
-            await self.client.async_set_bass(self.zone, int_val)
+            factory = lambda: self.client.async_set_bass(self.zone, int_val)
         elif self.control == "treble":
-            await self.client.async_set_treble(self.zone, int_val)
+            factory = lambda: self.client.async_set_treble(self.zone, int_val)
         else:
-            await self.client.async_set_balance(self.zone, int_val)
+            factory = lambda: self.client.async_set_balance(self.zone, int_val)
+
+        await self._async_command(factory, f"set {self.control}")
 
     def _do_update(self, zone: int) -> None:
-        if zone is None and not self.client.has_zone_data(self.zone):
-            return
         if zone is not None and zone != 0 and zone != self.zone:
             return
-        if not self.client.has_zone_data(self.zone):
-            return
+
+        # unconditional: the library broadcasts zone=None on connect and disconnect, and
+        # should_poll is False, so this is the only thing that repaints the slider
         self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+
+        if self._restore_enabled:
+            last = await self.async_get_last_number_data()
+            if last is not None:
+                self._restored_value = last.native_value
+
         await self.client.async_subscribe(self._do_update)
 
     async def async_will_remove_from_hass(self) -> None:

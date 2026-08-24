@@ -13,13 +13,13 @@ from homeassistant.const import (
     STATE_OFF,
     STATE_ON,
     STATE_UNKNOWN,
-    STATE_UNAVAILABLE,
 )
 from homeassistant.core import HomeAssistant
 from htd_client import BaseClient, HtdConstants, HtdMcaClient
 from htd_client.models import ZoneDetail
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
     DOMAIN,
@@ -30,7 +30,10 @@ from .const import (
     CONF_ENABLED_ZONES,
     CONF_SOURCE_FILTER_ENABLED,
     CONF_ZONE_SOURCE_FILTERS,
+    CONF_CACHED_ZONE_NAMES,
+    CONF_CACHED_SOURCE_NAMES,
 )
+from .entity import HtdEntity
 
 
 def make_alphanumeric(input_string):
@@ -123,7 +126,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: HtdClientConfigEn
     async_add_entities(entities)
 
 
-class HtdDevice(MediaPlayerEntity):
+class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
     should_poll = False
 
     unique_id: str = None
@@ -133,6 +136,7 @@ class HtdDevice(MediaPlayerEntity):
     zone: int = None
     changing_volume: int | None = None
     zone_info: ZoneDetail = None
+    _restored = None
 
     def __init__(
         self,
@@ -152,9 +156,13 @@ class HtdDevice(MediaPlayerEntity):
         zone_fmt = f"02" if self.client.model["zones"] > 10 else "01"
         self.entity_id = get_media_player_entity_id(device_name, zone, zone_fmt)
 
-    @property
-    def enabled(self) -> bool:
-        return self.zone_info is not None and self.zone_info.enabled
+    def _live_zone(self):
+        """media_player keeps its own cached copy, updated in _do_update, so that stays the
+        single source of truth for this platform rather than reading the client twice."""
+        if not self.client.ready:
+            return None
+
+        return self.zone_info
 
     @property
     def entity_registry_enabled_default(self) -> bool:
@@ -173,9 +181,11 @@ class HtdDevice(MediaPlayerEntity):
         if self.config_entry is None:
             return f"Zone {self.zone} ({self.device_name})"
         overrides = self.config_entry.data.get(CONF_ZONE_NAMES, {})
+        cached = self.config_entry.data.get(CONF_CACHED_ZONE_NAMES, {})
         return (
             overrides.get(str(self.zone))
             or self.client.get_zone_name(self.zone)
+            or cached.get(str(self.zone))
             or f"Zone {self.zone}"
         )
 
@@ -184,74 +194,121 @@ class HtdDevice(MediaPlayerEntity):
 
     @property
     def state(self):
-        if not self.client.connected:
-            return STATE_UNAVAILABLE
+        zone_info = self._live_zone()
 
-        if self.zone_info is None:
-            return STATE_UNKNOWN
+        if zone_info is not None:
+            return STATE_ON if zone_info.power else STATE_OFF
 
-        if self.zone_info.power:
-            return STATE_ON
+        if self._restore_enabled and self._restored is not None:
+            return self._restored.state
 
-        return STATE_OFF
+        return STATE_UNKNOWN
 
     @property
     def volume_step(self) -> float:
         return 1 / HtdConstants.MAX_VOLUME
 
     async def async_volume_up(self) -> None:
-        await self.client.async_volume_up(self.zone)
+        await self._async_command(
+            lambda: self.client.async_volume_up(self.zone), "raise the volume"
+        )
 
     async def async_volume_down(self) -> None:
-        await self.client.async_volume_down(self.zone)
+        await self._async_command(
+            lambda: self.client.async_volume_down(self.zone), "lower the volume"
+        )
 
     async def async_turn_on(self):
-        await self.client.async_power_on(self.zone)
+        await self._async_command(
+            lambda: self.client.async_power_on(self.zone), "turn on"
+        )
 
     async def async_turn_off(self):
-        await self.client.async_power_off(self.zone)
+        await self._async_command(
+            lambda: self.client.async_power_off(self.zone), "turn off"
+        )
 
     @property
-    def volume_level(self) -> float:
-        return self.zone_info.volume / HtdConstants.MAX_VOLUME
+    def volume_level(self) -> float | None:
+        zone_info = self._live_zone()
 
-    @property
-    def available(self) -> bool:
-        return self.client.ready and self.zone_info is not None
+        if zone_info is not None:
+            return zone_info.volume / HtdConstants.MAX_VOLUME
+
+        if self._restore_enabled and self._restored is not None:
+            return self._restored.attributes.get("volume_level")
+
+        return None
 
     async def async_set_volume_level(self, volume: float):
         converted_volume = round(volume * HtdConstants.MAX_VOLUME)
         _LOGGER.info("setting new volume for zone %d to %f, raw htd = %d" % (self.zone, volume, converted_volume))
-        await self.client.async_set_volume(self.zone, converted_volume)
+        await self._async_command(
+            lambda: self.client.async_set_volume(self.zone, converted_volume),
+            "set the volume",
+        )
 
     @property
-    def is_volume_muted(self) -> bool:
-        return self.zone_info.mute
+    def is_volume_muted(self) -> bool | None:
+        zone_info = self._live_zone()
+
+        if zone_info is not None:
+            return zone_info.mute
+
+        if self._restore_enabled and self._restored is not None:
+            return self._restored.attributes.get("is_volume_muted")
+
+        return None
 
     async def async_mute_volume(self, mute):
         if mute:
-            await self.client.async_mute(self.zone)
+            await self._async_command(
+                lambda: self.client.async_mute(self.zone), "mute"
+            )
         else:
-            await self.client.async_unmute(self.zone)
+            await self._async_command(
+                lambda: self.client.async_unmute(self.zone), "unmute"
+            )
 
     def _resolve_source_name(self, source: int) -> str:
         if self.config_entry is None:
             return self.client.get_source_name(source)
         overrides = self.config_entry.data.get(CONF_SOURCE_NAMES, {})
-        return overrides.get(str(source)) or self.client.get_source_name(source)
+        cached = self.config_entry.data.get(CONF_CACHED_SOURCE_NAMES, {})
+        return (
+            overrides.get(str(source))
+            or self.client.get_source_name(source)
+            or cached.get(str(source))
+            or f"Source {source}"
+        )
 
     @property
-    def source(self) -> str:
-        return self._resolve_source_name(self.zone_info.source)
+    def source(self) -> str | None:
+        zone_info = self._live_zone()
+
+        if zone_info is not None:
+            return self._resolve_source_name(zone_info.source)
+
+        if self._restore_enabled and self._restored is not None:
+            return self._restored.attributes.get("source")
+
+        return None
 
     @property
     def extra_state_attributes(self):
-        if self.zone_info is None:
+        zone_info = self._live_zone()
+
+        if zone_info is None:
+            if self._restore_enabled and self._restored is not None:
+                source_id = self._restored.attributes.get("source_id")
+                if source_id is not None:
+                    return {"source_id": source_id}
             return {}
+
         # The controller's source index never changes when a source is renamed,
         # so this gives automations a stable handle. "Source N" rather than the
         # bare integer because select_source accepts that exact string back.
-        return {"source_id": f"Source {self.zone_info.source}"}
+        return {"source_id": f"Source {zone_info.source}"}
 
     def _allowed_source_indices(self) -> list[int]:
         filter_enabled = (
@@ -301,7 +358,10 @@ class HtdDevice(MediaPlayerEntity):
                 self.zone, source, sorted(source_map),
             )
             return
-        await self.client.async_set_source(self.zone, controller_index)
+        await self._async_command(
+            lambda: self.client.async_set_source(self.zone, controller_index),
+            "select a source",
+        )
 
     @property
     def icon(self):
@@ -309,10 +369,18 @@ class HtdDevice(MediaPlayerEntity):
 
     async def async_added_to_hass(self):
         """Run when this Entity has been added to HA."""
-        # Sensors should also register callbacks to HA when their state changes
-        # print('registering callback')
+        await super().async_added_to_hass()
+
+        if self._restore_enabled:
+            self._restored = await self.async_get_last_state()
+
         await self.client.async_subscribe(self._do_update)
-        await self.client.refresh()
+
+        # skipped while disconnected; the library raises HtdConnectionError there, and the
+        # heartbeat issues the first refresh once the connection comes up.
+        # (the per-entity fan-out this causes is issue #31, deliberately untouched)
+        if self.client.connected:
+            await self.client.refresh()
 
     async def async_will_remove_from_hass(self):
         """Entity being removed from hass."""
@@ -320,19 +388,17 @@ class HtdDevice(MediaPlayerEntity):
         await self.client.async_unsubscribe(self._do_update)
 
     def _do_update(self, zone: int):
-        if zone is None and self.zone_info is not None:
-            return
-
         if zone is not None and zone != 0 and zone != self.zone:
-            return
-
-        if not self.client.has_zone_data(self.zone):
             return
 
         # if there's a target volume for mca, don't update yet
         if isinstance(self.client, HtdMcaClient) and self.client.has_volume_target(self.zone):
             return
 
-        if zone is not None and self.client.has_zone_data(zone):
-            self.zone_info = self.client.get_zone(zone)
-            self.schedule_update_ha_state(force_refresh=True)
+        if self.client.has_zone_data(self.zone):
+            self.zone_info = self.client.get_zone(self.zone)
+
+        # unconditional: the library now broadcasts zone=None on connect and disconnect, and
+        # should_poll is False, so this is the only thing that repaints a card during an
+        # outage or when one ends.
+        self.async_write_ha_state()

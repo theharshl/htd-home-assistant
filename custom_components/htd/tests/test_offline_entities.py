@@ -154,3 +154,159 @@ def test_a_command_that_succeeds_raises_nothing():
 
     asyncio.run(entity._async_command(_ok, "turn on"))
     assert calls == ["sent"]
+
+
+# --- media_player ---
+
+from custom_components.htd.const import (
+    CONF_CACHED_SOURCE_NAMES,
+    CONF_CACHED_ZONE_NAMES,
+    CONF_SOURCE_NAMES,
+    CONF_ZONE_NAMES,
+)
+from custom_components.htd.media_player import HtdDevice
+
+
+def _mp_entry(restore=False, cached_zones=None, cached_sources=None, overrides=None):
+    entry = MagicMock()
+    entry.data = {
+        CONF_UNIQUE_ID: "uid",
+        CONF_RESTORE_LAST_STATE: restore,
+        CONF_ZONE_NAMES: overrides or {},
+        CONF_SOURCE_NAMES: {},
+        CONF_CACHED_ZONE_NAMES: cached_zones or {},
+        CONF_CACHED_SOURCE_NAMES: cached_sources or {},
+    }
+    return entry
+
+
+def _mp_client(*, connected=False, zone_names=None, source_names=None):
+    client = MagicMock()
+    client.model = {"zones": 12, "kind": MagicMock(value="lync")}
+    client.connected = connected
+    client.ready = connected
+    client.has_zone_data = MagicMock(return_value=False)
+    client.get_zone_name = MagicMock(side_effect=lambda z: (zone_names or {}).get(z))
+    client.get_source_names = MagicMock(return_value=source_names or {})
+    client.get_source_name = MagicMock(side_effect=lambda s: (source_names or {}).get(s, f"Source {s}"))
+    return client
+
+
+def test_htd_device_does_not_shadow_the_reserved_enabled_property():
+    """Home Assistant reads Entity.enabled to decide whether an entity joins the state
+    machine at all, and drives it from registry_entry.disabled_by. Shadowing it both blocked
+    offline entities outright and left the zone-filter feature unable to hide a zone."""
+    assert "enabled" not in vars(HtdDevice)
+
+
+def test_an_offline_zone_falls_back_to_its_cached_controller_name():
+    """Home Assistant passes entity.name to the registry as original_name and the registry
+    overwrites what it stored. Without the cache, one offline restart renames "Kitchen" to
+    "Zone 3" permanently — it does not come back when the amplifier does."""
+    client = _mp_client(connected=False)
+    entry = _mp_entry(cached_zones={"3": "kitchen"})
+    device = HtdDevice("uid", "HTD", 3, [], client, entry)
+
+    assert device.name == "kitchen"
+
+
+def test_a_live_controller_name_still_beats_the_cache():
+    """The cache is a fallback, not a replacement. A zone renamed at the keypad must show its
+    new name immediately, not the stale one from last restart."""
+    client = _mp_client(connected=True, zone_names={3: "dining"})
+    entry = _mp_entry(cached_zones={"3": "kitchen"})
+    device = HtdDevice("uid", "HTD", 3, [], client, entry)
+
+    assert device.name == "dining"
+
+
+def test_a_user_override_still_beats_everything():
+    """Resolution order is user override -> live -> cached -> Zone N, unchanged at the top."""
+    client = _mp_client(connected=True, zone_names={3: "dining"})
+    entry = _mp_entry(cached_zones={"3": "kitchen"}, overrides={"3": "Mine"})
+    device = HtdDevice("uid", "HTD", 3, [], client, entry)
+
+    assert device.name == "Mine"
+
+
+def test_volume_and_source_are_none_rather_than_raising_without_zone_data():
+    """These three dereferenced zone_info unguarded. That was safe only because entities could
+    not exist before data arrived — an invariant this change deliberately removes."""
+    client = _mp_client(connected=False)
+    device = HtdDevice("uid", "HTD", 1, [], client, _mp_entry(restore=True))
+    device.zone_info = None
+
+    assert device.volume_level is None
+    assert device.is_volume_muted is None
+    assert device.source is None
+
+
+def test_restored_values_are_used_when_there_is_no_live_data():
+    """The reporter's actual request: the dashboard should read what the zone was doing the
+    last time Home Assistant could see it."""
+    client = _mp_client(connected=False)
+    device = HtdDevice("uid", "HTD", 1, [], client, _mp_entry(restore=True))
+    device.zone_info = None
+    device._restored = MagicMock(
+        state="off",
+        attributes={
+            "volume_level": 0.25,
+            "is_volume_muted": False,
+            "source": "turntable",
+            "source_id": "Source 2",
+        },
+    )
+
+    assert device.state == "off"
+    assert device.volume_level == 0.25
+    assert device.is_volume_muted is False
+    assert device.source == "turntable"
+    assert device.extra_state_attributes == {"source_id": "Source 2"}
+
+
+def test_restore_with_nothing_saved_is_available_but_unknown():
+    """On a first-ever offline start, or after the recorder database is cleared, there is
+    nothing to restore. Falling back to unavailable here would make the presentation depend on
+    database contents and oscillate between two different looks."""
+    from homeassistant.const import STATE_UNKNOWN
+
+    client = _mp_client(connected=False)
+    device = HtdDevice("uid", "HTD", 1, [], client, _mp_entry(restore=True))
+    device.zone_info = None
+    device._restored = None
+
+    assert device.available is True
+    assert device.assumed_state is True
+    assert device.state == STATE_UNKNOWN
+
+
+def test_turn_on_while_offline_raises_a_visible_error():
+    """Every command method must pre-check, not just the ones that happen to be tested."""
+    client = _mp_client(connected=False)
+    device = HtdDevice("uid", "HTD", 1, [], client, _mp_entry(restore=True))
+
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(device.async_turn_on())
+
+
+def test_do_update_repaints_even_when_there_is_no_zone_data():
+    """should_poll is False on every platform, so a card only repaints on a broadcast. The old
+    early-return meant the library's new connection_lost broadcast changed nothing on screen
+    and stale live values stayed up for the whole outage."""
+    from unittest.mock import patch
+
+    class _SomeOtherClient:
+        """`htd_client` is a MagicMock here, so media_player's `isinstance(self.client,
+        HtdMcaClient)` check needs a real class as its second argument or it raises TypeError
+        before reaching the behavior under test."""
+
+    client = _mp_client(connected=False)
+    device = HtdDevice("uid", "HTD", 1, [], client, _mp_entry(restore=True))
+    device.zone_info = None
+    written = []
+    device.async_write_ha_state = lambda: written.append(True)
+
+    with patch("custom_components.htd.media_player.HtdMcaClient", _SomeOtherClient):
+        device._do_update(None)
+
+    assert written == [True]

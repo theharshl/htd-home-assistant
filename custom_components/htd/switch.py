@@ -1,6 +1,6 @@
 """DND (Do Not Disturb) per-zone switch entity for HTD Lync devices."""
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import CONF_UNIQUE_ID, STATE_ON
+from homeassistant.const import CONF_UNIQUE_ID, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -128,7 +128,9 @@ class HtdDndSwitch(HtdEntity, SwitchEntity, RestoreEntity):
 
         if self._restore_enabled:
             last = await self.async_get_last_state()
-            if last is not None:
+            # a restored "unavailable" or "unknown" is not "off" — see media_player's
+            # _usable_restored for why passing either through would misreport DND state
+            if last is not None and last.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 self._restored_is_on = last.state == STATE_ON
 
         await self.client.async_subscribe(self._do_update)

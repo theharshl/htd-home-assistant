@@ -209,6 +209,26 @@ def test_offline_setup_never_overwrites_cached_names_with_nothing():
     hass.config_entries.async_update_entry.assert_not_called()
 
 
+def test_a_connection_drop_during_name_caching_does_not_abort_setup():
+    """Since library 0.1.8, `_send_cmd` raises HtdConnectionError when disconnected. If the
+    link drops between the `client.connected` check and the name-query gather, that
+    exception must not propagate out of async_setup_entry: HA would mark the entry
+    SETUP_ERROR (unlike ConfigEntryNotReady, not retried), and the retry task that
+    connection_lost already armed would leak because async_unload_entry never runs. The
+    name cache is best-effort by design and may give up quietly."""
+    entry = _config_entry({CONF_HOST: "1.2.3.4", CONF_PORT: 10006, CONF_MODEL_KEY: "mca66"})
+    hass = _hass()
+    client = _client(connected=True)
+    client.async_query_source_name.side_effect = HtdConnectionError("dropped mid-query")
+
+    with patch.object(htd_init, "get_model_info", return_value=MCA66), patch.object(
+        htd_init, "build_client", return_value=client
+    ):
+        assert asyncio.run(htd_init.async_setup_entry(hass, entry)) is True
+
+    hass.config_entries.async_forward_entry_setups.assert_awaited_once()
+
+
 def test_online_setup_caches_the_names_the_controller_reported():
     """The cache is only ever written while online, and only from names the controller
     actually gave us — never from get_source_name's invented "Source N" placeholders."""

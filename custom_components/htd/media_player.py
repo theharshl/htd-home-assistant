@@ -12,6 +12,7 @@ from homeassistant.const import (
     CONF_UNIQUE_ID,
     STATE_OFF,
     STATE_ON,
+    STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
 from homeassistant.core import HomeAssistant
@@ -158,11 +159,32 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
 
     def _live_zone(self):
         """media_player keeps its own cached copy, updated in _do_update, so that stays the
-        single source of truth for this platform rather than reading the client twice."""
+        single source of truth for this platform rather than reading the client twice.
+
+        Invariant this relies on: connection_lost sets client.ready False, and it only
+        returns to True after every zone's status frame has been parsed, with each frame
+        broadcasting to its own entity first. So by the instant `ready` flips True, every
+        HtdDevice.zone_info has already been refreshed — this cached override cannot serve
+        a stale zone in practice.
+        """
         if not self.client.ready:
             return None
 
         return self.zone_info
+
+    def _usable_restored(self):
+        """The restored State, or None if there is nothing usable to restore.
+
+        Home Assistant's RestoreStateData persists whatever this entity last reported,
+        including "unavailable" — reachable when restore was off during a prior outage, and
+        then turned on while still offline. Passing that through verbatim would reproduce
+        the exact broken card this feature exists to eliminate, now with assumed_state
+        layered on top, so a restored "unavailable" is treated as nothing to restore.
+        """
+        if self._restored is None or self._restored.state == STATE_UNAVAILABLE:
+            return None
+
+        return self._restored
 
     @property
     def entity_registry_enabled_default(self) -> bool:
@@ -199,8 +221,9 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         if zone_info is not None:
             return STATE_ON if zone_info.power else STATE_OFF
 
-        if self._restore_enabled and self._restored is not None:
-            return self._restored.state
+        restored = self._usable_restored()
+        if self._restore_enabled and restored is not None:
+            return restored.state
 
         return STATE_UNKNOWN
 
@@ -235,8 +258,9 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         if zone_info is not None:
             return zone_info.volume / HtdConstants.MAX_VOLUME
 
-        if self._restore_enabled and self._restored is not None:
-            return self._restored.attributes.get("volume_level")
+        restored = self._usable_restored()
+        if self._restore_enabled and restored is not None:
+            return restored.attributes.get("volume_level")
 
         return None
 
@@ -255,8 +279,9 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         if zone_info is not None:
             return zone_info.mute
 
-        if self._restore_enabled and self._restored is not None:
-            return self._restored.attributes.get("is_volume_muted")
+        restored = self._usable_restored()
+        if self._restore_enabled and restored is not None:
+            return restored.attributes.get("is_volume_muted")
 
         return None
 
@@ -291,8 +316,9 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         if zone_info is not None:
             return self._resolve_source_name(zone_info.source)
 
-        if self._restore_enabled and self._restored is not None:
-            return self._restored.attributes.get("source")
+        restored = self._usable_restored()
+        if self._restore_enabled and restored is not None:
+            return restored.attributes.get("source")
 
         return None
 
@@ -301,8 +327,9 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         zone_info = self._live_zone()
 
         if zone_info is None:
-            if self._restore_enabled and self._restored is not None:
-                source_id = self._restored.attributes.get("source_id")
+            restored = self._usable_restored()
+            if self._restore_enabled and restored is not None:
+                source_id = restored.attributes.get("source_id")
                 if source_id is not None:
                     return {"source_id": source_id}
             return {}
@@ -334,8 +361,7 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
             # Insertion order matters: controller-native -> resolved/override, so the
             # currently active name is written last and wins on a collision between them.
             controller_name = self.client.get_source_name(i)
-            if controller_name:
-                result[controller_name] = i
+            result[controller_name] = i
             result[self._resolve_source_name(i)] = i
         # Generic labels are reserved: "Source N" always resolves to index N, so the
         # source_id attribute round-trips even if a display name collides with one.

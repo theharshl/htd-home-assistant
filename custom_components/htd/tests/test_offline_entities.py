@@ -280,6 +280,38 @@ def test_restore_with_nothing_saved_is_available_but_unknown():
     assert device.state == STATE_UNKNOWN
 
 
+def test_a_restored_unavailable_state_is_not_passed_through_verbatim():
+    """Reachable sequence: restore is off (the default) during an outage, so the entity
+    correctly persists a literal "unavailable" state when Home Assistant shuts down. The
+    user then turns restore on and reloads while still offline. `available` is now True, so
+    without this guard Home Assistant would write the string "unavailable" as the entity's
+    state — the exact broken card this feature exists to eliminate, with assumed_state
+    layered on top. A restored unavailable must degrade to unknown instead, and the same
+    guard applies to every attribute read off the same restored State object."""
+    from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+
+    client = _mp_client(connected=False)
+    device = HtdDevice("uid", "HTD", 1, [], client, _mp_entry(restore=True))
+    device.zone_info = None
+    device._restored = MagicMock(
+        state=STATE_UNAVAILABLE,
+        attributes={
+            "volume_level": 0.25,
+            "is_volume_muted": False,
+            "source": "turntable",
+            "source_id": "Source 2",
+        },
+    )
+
+    assert device.available is True
+    assert device.assumed_state is True
+    assert device.state == STATE_UNKNOWN
+    assert device.volume_level is None
+    assert device.is_volume_muted is None
+    assert device.source is None
+    assert device.extra_state_attributes == {}
+
+
 def test_turn_on_while_offline_raises_a_visible_error():
     """Every command method must pre-check, not just the ones that happen to be tested."""
     client = _mp_client(connected=False)
@@ -444,3 +476,57 @@ def test_switch_do_update_repaints_without_zone_data():
     switch._do_update(None)
 
     assert written == [True]
+
+
+# --- async_added_to_hass actually wires restoration up ---
+#
+# Every test above assigns _restored / _restored_value / _restored_is_on directly. None of
+# them would catch async_added_to_hass failing to populate those fields itself. These stub
+# async_get_last_state / async_get_last_number_data per instance and drive the real method.
+#
+# Ceiling: conftest.py's RestoreEntity stub makes async_get_last_state always return None,
+# so this only guards against a future refactor of our own wiring code. It cannot verify
+# real RestoreEntity/RestoreNumber inheritance, and it cannot verify Home Assistant's own
+# async_internal_added_to_hass -> async_added_to_hass ordering, since none of that exists
+# in this test double.
+
+from unittest.mock import AsyncMock
+
+
+def test_media_player_async_added_to_hass_populates_restored_from_last_state():
+    client = _mp_client(connected=False)
+    client.async_subscribe = AsyncMock()
+    device = HtdDevice("uid", "HTD", 1, [], client, _mp_entry(restore=True))
+    fake_state = MagicMock(state="off", attributes={})
+    device.async_get_last_state = AsyncMock(return_value=fake_state)
+
+    asyncio.run(device.async_added_to_hass())
+
+    assert device._restored is fake_state
+    client.async_subscribe.assert_awaited_once_with(device._do_update)
+
+
+def test_switch_async_added_to_hass_populates_restored_is_on_from_last_state():
+    from homeassistant.const import STATE_ON
+
+    client = _eq_client(connected=False)
+    client.async_subscribe = AsyncMock()
+    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+    switch.async_get_last_state = AsyncMock(return_value=MagicMock(state=STATE_ON))
+
+    asyncio.run(switch.async_added_to_hass())
+
+    assert switch._restored_is_on is True
+
+
+def test_number_async_added_to_hass_populates_restored_value_from_last_number_data():
+    client = _eq_client(connected=False)
+    client.async_subscribe = AsyncMock()
+    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number.async_get_last_number_data = AsyncMock(
+        return_value=MagicMock(native_value=4.0)
+    )
+
+    asyncio.run(number.async_added_to_hass())
+
+    assert number._restored_value == 4.0

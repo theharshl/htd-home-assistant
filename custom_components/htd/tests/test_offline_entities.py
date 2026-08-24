@@ -310,3 +310,14 @@ def test_do_update_repaints_even_when_there_is_no_zone_data():
         device._do_update(None)
 
     assert written == [True]
+
+
+def test_an_offline_source_falls_back_to_its_cached_controller_name():
+    """Mirrors the zone-name cache: get_source_names() reports nothing while offline, so
+    without the cached tier a source silently reverts to the generic "Source N" label
+    instead of the name the controller last reported."""
+    client = _mp_client(connected=False)
+    entry = _mp_entry(cached_sources={"2": "turntable"})
+    device = HtdDevice("uid", "HTD", 1, [], client, entry)
+
+    assert device._resolve_source_name(2) == "turntable"

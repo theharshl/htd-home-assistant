@@ -277,7 +277,9 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         cached = self.config_entry.data.get(CONF_CACHED_SOURCE_NAMES, {})
         return (
             overrides.get(str(source))
-            or self.client.get_source_name(source)
+            # get_source_names reports only what the controller actually said, so a missing
+            # entry falls through to the cache instead of to an invented "Source N"
+            or self.client.get_source_names().get(source)
             or cached.get(str(source))
             or f"Source {source}"
         )

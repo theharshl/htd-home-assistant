@@ -147,6 +147,10 @@ def _make_source_client(controller_names=None):
     controller_names = controller_names or {}
     client = MagicMock()
     client.get_source_name = MagicMock(side_effect=lambda i: controller_names.get(i) or f"Source {i}")
+    # get_source_names reports only what the controller actually said (no invented
+    # "Source N" entries), matching the real htd-client-ha contract that
+    # _resolve_source_name's cached-name fallback relies on.
+    client.get_source_names = MagicMock(return_value=dict(controller_names))
     client.async_set_source = AsyncMock()
     client.model = {"zones": 6}
     return client

@@ -112,10 +112,12 @@
           "host": "Host name or IP Address",
           "port": "Port",
           "path": "Serial device path",
-          "device_name": "Device name"
+          "device_name": "Device name",
+          "restore_last_state": "Restore last known state when the device is offline"
         },
         "data_description": {
-          "path": "For serial devices, prefer a stable path under /dev/serial/by-id/ over /dev/ttyUSBx."
+          "path": "For serial devices, prefer a stable path under /dev/serial/by-id/ over /dev/ttyUSBx.",
+          "restore_last_state": "Show each zone's last known state instead of Unavailable while the amplifier is off. Home Assistant will mark these entities as assumed state, because a zone changed at the keypad while Home Assistant was down will read incorrectly until the amplifier reconnects."
         }
       },
       "zone_names": {

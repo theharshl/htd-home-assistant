@@ -118,3 +118,44 @@ def test_device_step_still_probes_when_no_cached_model_info():
     assert result["type"] == "form"
     assert result["step_id"] == "device"
     assert probe.call_count == 1
+
+
+def test_create_entry_persists_the_detected_model_key():
+    """Without a stored key every restart must re-probe the device, which is exactly why an
+    offline restart today produces no entities at all. Every creation path — user, network,
+    serial and DHCP — funnels through _create_entry, so this one write covers all of them."""
+    from custom_components.htd.config_flow import HtdConfigFlow
+    from custom_components.htd.const import CONF_MODEL_KEY, CONF_RESTORE_LAST_STATE
+
+    flow = HtdConfigFlow()
+    flow.host = "1.2.3.4"
+    flow.port = 10006
+    flow.unique_id = "uid"
+    flow._device_name = "HTD"
+    flow._model_info = {"key": "mca66", "zones": 6, "sources": 6}
+    flow.async_create_entry = MagicMock()
+
+    flow._create_entry()
+
+    data = flow.async_create_entry.call_args.kwargs["data"]
+    assert data[CONF_MODEL_KEY] == "mca66"
+
+
+def test_create_entry_defaults_state_restoration_to_off():
+    """Restoration changes what a state means — an "off" zone may actually be on. It has to
+    be something the user opts into, not something an upgrade turns on underneath them."""
+    from custom_components.htd.config_flow import HtdConfigFlow
+    from custom_components.htd.const import CONF_RESTORE_LAST_STATE
+
+    flow = HtdConfigFlow()
+    flow.host = "1.2.3.4"
+    flow.port = 10006
+    flow.unique_id = "uid"
+    flow._device_name = "HTD"
+    flow._model_info = {"key": "lync12", "zones": 12, "sources": 19}
+    flow.async_create_entry = MagicMock()
+
+    flow._create_entry()
+
+    data = flow.async_create_entry.call_args.kwargs["data"]
+    assert data[CONF_RESTORE_LAST_STATE] is False

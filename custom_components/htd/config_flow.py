@@ -18,6 +18,8 @@ from .const import (
     CONF_ENABLED_ZONES,
     CONF_SOURCE_FILTER_ENABLED,
     CONF_ZONE_SOURCE_FILTERS,
+    CONF_MODEL_KEY,
+    CONF_RESTORE_LAST_STATE,
     DOMAIN,
 )
 
@@ -382,6 +384,8 @@ class HtdConfigFlow(ConfigFlow, domain=DOMAIN):
                 **connection_data,
                 CONF_UNIQUE_ID: self.unique_id,
                 CONF_DEVICE_NAME: self._device_name,
+                CONF_MODEL_KEY: (self._model_info or {}).get("key"),
+                CONF_RESTORE_LAST_STATE: False,
                 CONF_ZONE_NAMES: self._zone_name_overrides or {},
                 CONF_SOURCE_NAMES: self._source_name_overrides or {},
                 CONF_ZONE_FILTER_ENABLED: self._zone_filter_enabled,
@@ -622,31 +626,45 @@ def get_connection_settings_schema(config_entry: ConfigEntry | None = None):
         host = config_entry.data.get(CONF_HOST)
         port = config_entry.data.get(CONF_PORT)
         device_name = config_entry.title
+        restore_last_state = config_entry.data.get(CONF_RESTORE_LAST_STATE, False)
     else:
         host = None
         port = HtdConstants.DEFAULT_PORT
         device_name = None
+        restore_last_state = False
 
-    return vol.Schema(
-        {
-            vol.Required(CONF_HOST, default=host): cv.string,
-            vol.Required(CONF_PORT, default=port): cv.port,
-            vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
-        }
-    )
+    schema = {
+        vol.Required(CONF_HOST, default=host): cv.string,
+        vol.Required(CONF_PORT, default=port): cv.port,
+        vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
+    }
+
+    if config_entry is not None:
+        schema[
+            vol.Optional(CONF_RESTORE_LAST_STATE, default=restore_last_state)
+        ] = cv.boolean
+
+    return vol.Schema(schema)
 
 
 def get_serial_connection_settings_schema(config_entry: ConfigEntry | None = None):
     if config_entry is not None:
         serial_address = config_entry.data.get(CONF_PATH)
         device_name = config_entry.title
+        restore_last_state = config_entry.data.get(CONF_RESTORE_LAST_STATE, False)
     else:
         serial_address = None
         device_name = None
+        restore_last_state = False
 
-    return vol.Schema(
-        {
-            vol.Required(CONF_PATH, default=serial_address): cv.string,
-            vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
-        }
-    )
+    schema = {
+        vol.Required(CONF_PATH, default=serial_address): cv.string,
+        vol.Optional(CONF_DEVICE_NAME, default=device_name): cv.string,
+    }
+
+    if config_entry is not None:
+        schema[
+            vol.Optional(CONF_RESTORE_LAST_STATE, default=restore_last_state)
+        ] = cv.boolean
+
+    return vol.Schema(schema)

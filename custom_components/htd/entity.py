@@ -3,14 +3,10 @@
 Availability, assumed state, restore plumbing and the offline-command guard are identical
 across media_player, number and switch, so they live here rather than three times over.
 """
-import logging
-
 from homeassistant.exceptions import HomeAssistantError
 from htd_client.exceptions import HtdConnectionError
 
 from .const import CONF_RESTORE_LAST_STATE
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class HtdEntity:

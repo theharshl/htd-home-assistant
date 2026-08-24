@@ -89,6 +89,14 @@ def test_a_zone_the_controller_reports_as_disabled_is_unavailable():
     assert entity.available is False
 
 
+def test_a_disabled_zone_is_unavailable_even_with_live_data_and_restore_on():
+    """Discriminates the `enabled` branch from the restore fallback: with restore on and live
+    zone data present, `_restore_enabled` alone would say available. Only consulting
+    `ZoneDetail.enabled` when there is live data to consult can produce `False` here."""
+    entity = _Entity(_client(enabled=False), _entry(True))
+    assert entity.available is False
+
+
 def test_the_disabled_flag_is_not_inferred_from_missing_data():
     """Absence of data is not the controller saying "disabled". Conflating the two is what
     made every entity vanish during an outage in the first place."""

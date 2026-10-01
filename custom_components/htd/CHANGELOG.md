@@ -1,3 +1,11 @@
+## [0.0.40] - 2026-09-30
+### Fixed
+- Startup no longer sends one all-zones status query per zone (issue #31). Each `media_player`
+  entity issued its own full refresh when added, so a Lync 12 sent twelve identical queries
+  back-to-back, on top of the one the library already sends when the connection comes up. The
+  entity-level refresh is removed; entities get their first state from the library's own query.
+  On serial gateways this also stops queries going out during the post-connect settle delay.
+
 ## [0.0.39] - 2026-08-22
 ### Upgrade note — read this first
 This release will appear to change nothing until your amplifier has been reachable once. The

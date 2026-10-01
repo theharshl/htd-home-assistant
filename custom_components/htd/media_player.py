@@ -402,13 +402,9 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         if self._restore_enabled:
             self._restored = await self.async_get_last_state()
 
+        # no refresh here: the client's heartbeat issues the all-zones query on every connect,
+        # and subscribing is enough to receive it (or a replay, if it already arrived)
         await self.client.async_subscribe(self._do_update)
-
-        # skipped while disconnected; the library raises HtdConnectionError there, and the
-        # heartbeat issues the first refresh once the connection comes up.
-        # (the per-entity fan-out this causes is issue #31, deliberately untouched)
-        if self.client.connected:
-            await self.client.refresh()
 
     async def async_will_remove_from_hass(self):
         """Entity being removed from hass."""

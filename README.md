@@ -74,6 +74,24 @@ To let the integration's name take effect, clear the manual override:
 3. Click the name field and delete the custom value (leave it blank / reset to default)
 4. Save — the entity will now use the name from the integration
 
+## Entity IDs
+
+New installs get entity IDs built only from the device name and the zone **number**, so every entity of a zone shares one prefix:
+
+```
+media_player.htd_lync_12_zone_01
+number.htd_lync_12_zone_01_bass
+number.htd_lync_12_zone_01_treble
+number.htd_lync_12_zone_01_balance
+switch.htd_lync_12_zone_01_dnd
+```
+
+Zone numbers are zero-padded on controllers with more than ten zones (`zone_01`), and not on smaller ones (`zone_1`).
+
+**Existing installs keep their current entity IDs.** Earlier versions created the `number` and `switch` entities from the zone's display name (e.g. `number.kitchen_bass`, `switch.kitchen_dnd`). Those are left exactly as they are, so no automation or dashboard breaks on upgrade; only entities registered for the first time get the scheme above. If you would rather move to it, change each ID by hand: **Settings → Devices & Services → Entities**, open the entity, click the gear icon, and edit **Entity ID**. Update any automations, scripts and dashboards that reference the old ID.
+
+**Renaming never changes an entity ID.** Home Assistant assigns an entity ID once, when the entity is first registered, and does not change it afterwards — renaming a zone or the device updates the name shown in the UI, but not the ID. This is Home Assistant behavior, not an integration bug, and it is what keeps your automations working across renames. Use the entity settings dialog above if you want to change an ID.
+
 ## Zone Filtering (Hide Unused Zones)
 
 During initial setup or reconfigure, you can choose to filter zones so that only the zones you actually use appear in Home Assistant.

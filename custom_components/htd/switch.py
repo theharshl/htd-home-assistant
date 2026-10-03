@@ -6,13 +6,14 @@ from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
+    CONF_DEVICE_NAME,
     CONF_ZONE_NAMES,
     CONF_CACHED_ZONE_NAMES,
     CONF_ZONE_FILTER_ENABLED,
     CONF_ENABLED_ZONES,
     DOMAIN,
 )
-from .entity import HtdEntity
+from .entity import HtdEntity, get_zone_entity_id
 
 
 async def async_setup_platform(hass, _, async_add_entities, __=None):
@@ -22,13 +23,14 @@ async def async_setup_platform(hass, _, async_add_entities, __=None):
 
     for config in htd_configs:
         unique_id = config[CONF_UNIQUE_ID]
+        device_name = config[CONF_DEVICE_NAME]
         client = config["client"]
 
         if client.model["kind"].value != "lync":
             continue
 
         for zone in range(1, client.get_zone_count() + 1):
-            entities.append(HtdDndSwitch(client, unique_id, zone, None))
+            entities.append(HtdDndSwitch(client, unique_id, zone, None, device_name))
 
     async_add_entities(entities)
     return True
@@ -39,6 +41,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     if client.model["kind"].value != "lync":
         return
     unique_id = config_entry.data.get(CONF_UNIQUE_ID)
+    device_name = config_entry.title
 
     zone_filter_enabled = config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False)
     enabled_zones = set(config_entry.data.get(CONF_ENABLED_ZONES, []))
@@ -46,7 +49,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     entities = []
     for zone in range(1, client.get_zone_count() + 1):
-        entities.append(HtdDndSwitch(client, unique_id, zone, config_entry))
+        entities.append(HtdDndSwitch(client, unique_id, zone, config_entry, device_name))
 
         should_enable = not zone_filter_enabled or zone in enabled_zones
         uid = f"{unique_id}_zone_{zone}_dnd"
@@ -68,11 +71,16 @@ class HtdDndSwitch(HtdEntity, SwitchEntity, RestoreEntity):
     should_poll = False
     _restored_is_on = None
 
-    def __init__(self, client, unique_id: str, zone: int, config_entry):
+    def __init__(self, client, unique_id: str, zone: int, config_entry, device_name: str = None):
         self.client = client
         self.zone = zone
         self.config_entry = config_entry
         self._attr_unique_id = f"{unique_id}_zone_{zone}_dnd"
+        if device_name is not None:
+            # a first-registration suggestion only; see the equivalent comment in media_player.py
+            self.entity_id = get_zone_entity_id(
+                "switch", device_name, zone, client.model["zones"], "dnd"
+            )
 
     @property
     def entity_registry_enabled_default(self) -> bool:

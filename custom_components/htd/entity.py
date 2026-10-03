@@ -2,11 +2,36 @@
 
 Availability, assumed state, restore plumbing and the offline-command guard are identical
 across media_player, number and switch, so they live here rather than three times over.
+The entity ID scheme is shared the same way.
 """
+import re
+
 from homeassistant.exceptions import HomeAssistantError
 from htd_client.exceptions import HtdConnectionError
 
 from .const import CONF_RESTORE_LAST_STATE
+
+
+def make_alphanumeric(input_string):
+    temp = re.sub(r'[^a-zA-Z0-9]', '_', input_string)
+    return re.sub(r'_+', '_', temp).strip('_')
+
+
+def get_zone_entity_id(domain, device_name, zone, zone_count, suffix=None):
+    """The entity ID to request for a zone's entity, e.g. number.htd_lync_12_zone_01_bass.
+
+    Built only from the device name and the zone number, never the zone's display name, so
+    every entity of a zone shares one prefix and renaming a zone cannot leak into an ID.
+
+    Home Assistant only honours this the first time an entity is registered. Once a registry
+    entry exists for the entity's unique_id, the registry's stored entity_id wins and this
+    value is ignored — renaming the device or a zone never moves an existing entity.
+    """
+    zone_fmt = "02" if zone_count > 10 else "01"
+    object_id = f"{make_alphanumeric(device_name)}_zone_{zone:{zone_fmt}}"
+    if suffix:
+        object_id = f"{object_id}_{suffix}"
+    return f"{domain}.{object_id}".lower()
 
 
 class HtdEntity:

@@ -5,13 +5,14 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
 
 from .const import (
+    CONF_DEVICE_NAME,
     CONF_ZONE_NAMES,
     CONF_CACHED_ZONE_NAMES,
     CONF_ZONE_FILTER_ENABLED,
     CONF_ENABLED_ZONES,
     DOMAIN,
 )
-from .entity import HtdEntity
+from .entity import HtdEntity, get_zone_entity_id
 
 # Ranges as (min, max, step). String keys match HtdDeviceKind.value ("lync"/"mca").
 _RANGES: dict[str, dict[str, tuple[float, float, float]]] = {
@@ -45,11 +46,12 @@ async def async_setup_platform(hass, _, async_add_entities, __=None):
 
     for config in htd_configs:
         unique_id = config[CONF_UNIQUE_ID]
+        device_name = config[CONF_DEVICE_NAME]
         client = config["client"]
 
         for zone in range(1, client.get_zone_count() + 1):
             for control in ("bass", "treble", "balance"):
-                entities.append(HtdEqNumber(client, unique_id, zone, control, None))
+                entities.append(HtdEqNumber(client, unique_id, device_name, zone, control, None))
 
     async_add_entities(entities)
     return True
@@ -58,6 +60,7 @@ async def async_setup_platform(hass, _, async_add_entities, __=None):
 async def async_setup_entry(hass, config_entry, async_add_entities):
     client = config_entry.runtime_data
     unique_id = config_entry.data.get(CONF_UNIQUE_ID)
+    device_name = config_entry.title
 
     zone_filter_enabled = config_entry.data.get(CONF_ZONE_FILTER_ENABLED, False)
     enabled_zones = set(config_entry.data.get(CONF_ENABLED_ZONES, []))
@@ -66,7 +69,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     entities = []
     for zone in range(1, client.get_zone_count() + 1):
         for control in ("bass", "treble", "balance"):
-            entities.append(HtdEqNumber(client, unique_id, zone, control, config_entry))
+            entities.append(HtdEqNumber(client, unique_id, device_name, zone, control, config_entry))
 
         should_enable = not zone_filter_enabled or zone in enabled_zones
         for control in ("bass", "treble", "balance"):
@@ -90,7 +93,7 @@ class HtdEqNumber(HtdEntity, RestoreNumber):
     should_poll = False
     _restored_value = None
 
-    def __init__(self, client, unique_id: str, zone: int, control: str, config_entry):
+    def __init__(self, client, unique_id: str, device_name: str, zone: int, control: str, config_entry):
         self.client = client
         self.zone = zone
         self.control = control
@@ -101,6 +104,10 @@ class HtdEqNumber(HtdEntity, RestoreNumber):
         self._attr_native_max_value = max_val
         self._attr_native_step = step
         self._attr_unique_id = f"{unique_id}_zone_{zone}_{control}"
+        # only takes effect on first registration; see get_zone_entity_id
+        self.entity_id = get_zone_entity_id(
+            "number", device_name, zone, client.model["zones"], control
+        )
 
     @property
     def entity_registry_enabled_default(self) -> bool:

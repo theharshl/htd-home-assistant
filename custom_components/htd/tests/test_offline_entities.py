@@ -376,7 +376,7 @@ def test_number_restores_its_last_value_offline():
     """A zone card showing "Off" above "Bass: Unavailable" reads as more broken than the bug
     this fixes, which is why restoration covers all three platforms or none."""
     client = _eq_client(connected=False)
-    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number = HtdEqNumber(client, "uid", "HTD", 1, "bass", _mp_entry(restore=True))
     number._restored_value = 4.0
 
     assert number.available is True
@@ -387,7 +387,7 @@ def test_number_restores_its_last_value_offline():
 def test_number_is_unavailable_offline_with_restore_off():
     """The default must stay today's semantics: no invented values unless asked for."""
     client = _eq_client(connected=False)
-    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=False))
+    number = HtdEqNumber(client, "uid", "HTD", 1, "bass", _mp_entry(restore=False))
 
     assert number.available is False
 
@@ -396,7 +396,7 @@ def test_number_prefers_live_data_over_the_restored_value():
     """Once the amplifier is back the restored value must be dropped immediately, or a card
     keeps showing a stale slider position that no longer matches the hardware."""
     client = _eq_client(connected=True)
-    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number = HtdEqNumber(client, "uid", "HTD", 1, "bass", _mp_entry(restore=True))
     number._restored_value = -8.0
 
     assert number.native_value == 4.0
@@ -406,7 +406,7 @@ def test_number_prefers_live_data_over_the_restored_value():
 def test_setting_a_number_while_offline_raises_a_visible_error():
     """A slider that snaps back with no explanation is the worst of both worlds."""
     client = _eq_client(connected=False)
-    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number = HtdEqNumber(client, "uid", "HTD", 1, "bass", _mp_entry(restore=True))
 
     with pytest.raises(HomeAssistantError):
         asyncio.run(number.async_set_native_value(3.0))
@@ -417,7 +417,7 @@ def test_number_falls_back_to_the_cached_zone_name():
     name, so an offline restart would rewrite "Kitchen - Bass" to "Zone 3 - Bass"."""
     client = _eq_client(connected=False)
     entry = _mp_entry(cached_zones={"3": "kitchen"})
-    number = HtdEqNumber(client, "uid", 3, "bass", entry)
+    number = HtdEqNumber(client, "uid", "HTD", 3, "bass", entry)
 
     assert number.name == "kitchen - Bass"
 
@@ -425,7 +425,7 @@ def test_number_falls_back_to_the_cached_zone_name():
 def test_switch_restores_its_last_state_offline():
     """DND is Lync-only and lives on the same device card as the zone's media player."""
     client = _eq_client(connected=False)
-    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+    switch = HtdDndSwitch(client, "uid", "HTD", 1, _mp_entry(restore=True))
     switch._restored_is_on = True
 
     assert switch.available is True
@@ -436,7 +436,7 @@ def test_switch_restores_its_last_state_offline():
 def test_switch_is_unavailable_offline_with_restore_off():
     """Default semantics, unchanged."""
     client = _eq_client(connected=False)
-    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=False))
+    switch = HtdDndSwitch(client, "uid", "HTD", 1, _mp_entry(restore=False))
 
     assert switch.available is False
 
@@ -445,7 +445,7 @@ def test_toggling_a_switch_while_offline_raises_a_visible_error():
     """Both directions — a DND toggle silently dropped is an automation that thinks it
     silenced a room and did not."""
     client = _eq_client(connected=False)
-    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+    switch = HtdDndSwitch(client, "uid", "HTD", 1, _mp_entry(restore=True))
 
     with pytest.raises(HomeAssistantError):
         asyncio.run(switch.async_turn_on())
@@ -457,7 +457,7 @@ def test_toggling_a_switch_while_offline_raises_a_visible_error():
 def test_number_do_update_repaints_without_zone_data():
     """Same reason as media_player: the connection_lost broadcast must actually repaint."""
     client = _eq_client(connected=False)
-    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number = HtdEqNumber(client, "uid", "HTD", 1, "bass", _mp_entry(restore=True))
     written = []
     number.async_write_ha_state = lambda: written.append(True)
 
@@ -469,7 +469,7 @@ def test_number_do_update_repaints_without_zone_data():
 def test_switch_do_update_repaints_without_zone_data():
     """Same reason again."""
     client = _eq_client(connected=False)
-    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+    switch = HtdDndSwitch(client, "uid", "HTD", 1, _mp_entry(restore=True))
     written = []
     switch.async_write_ha_state = lambda: written.append(True)
 
@@ -511,7 +511,7 @@ def test_switch_async_added_to_hass_populates_restored_is_on_from_last_state():
 
     client = _eq_client(connected=False)
     client.async_subscribe = AsyncMock()
-    switch = HtdDndSwitch(client, "uid", 1, _mp_entry(restore=True))
+    switch = HtdDndSwitch(client, "uid", "HTD", 1, _mp_entry(restore=True))
     switch.async_get_last_state = AsyncMock(return_value=MagicMock(state=STATE_ON))
 
     asyncio.run(switch.async_added_to_hass())
@@ -522,7 +522,7 @@ def test_switch_async_added_to_hass_populates_restored_is_on_from_last_state():
 def test_number_async_added_to_hass_populates_restored_value_from_last_number_data():
     client = _eq_client(connected=False)
     client.async_subscribe = AsyncMock()
-    number = HtdEqNumber(client, "uid", 1, "bass", _mp_entry(restore=True))
+    number = HtdEqNumber(client, "uid", "HTD", 1, "bass", _mp_entry(restore=True))
     number.async_get_last_number_data = AsyncMock(
         return_value=MagicMock(native_value=4.0)
     )

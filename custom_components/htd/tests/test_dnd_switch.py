@@ -8,7 +8,7 @@ from custom_components.htd.switch import HtdDndSwitch, async_setup_entry
 
 def _make_client(kind_value="lync", zone_name=None, has_zone_data=True, dnd=False):
     client = MagicMock()
-    client.model = {"kind": MagicMock(value=kind_value)}
+    client.model = {"kind": MagicMock(value=kind_value), "zones": 12}
     client.async_set_dnd = AsyncMock()
     client.get_zone_name = MagicMock(return_value=zone_name)
     client.has_zone_data = MagicMock(return_value=has_zone_data)
@@ -25,7 +25,7 @@ def _make_config_entry(zone_names=None):
 
 
 def _make_entity(client, zone=1, zone_names=None):
-    return HtdDndSwitch(client, "uid", zone=zone, config_entry=_make_config_entry(zone_names))
+    return HtdDndSwitch(client, "uid", "HTD", zone=zone, config_entry=_make_config_entry(zone_names))
 
 
 def test_is_on_reflects_zone_dnd():

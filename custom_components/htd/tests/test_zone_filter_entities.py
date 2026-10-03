@@ -66,21 +66,21 @@ def test_media_player_no_config_entry_returns_true():
 def test_eq_number_enabled_when_filter_off():
     entry = _make_filter_entry(False, [])
     client = _make_client()
-    entity = HtdEqNumber(client, "uid", zone=2, control="bass", config_entry=entry)
+    entity = HtdEqNumber(client, "uid", "HTD", zone=2, control="bass", config_entry=entry)
     assert entity.entity_registry_enabled_default is True
 
 
 def test_eq_number_disabled_when_zone_not_in_filter():
     entry = _make_filter_entry(True, [1, 3])
     client = _make_client()
-    entity = HtdEqNumber(client, "uid", zone=2, control="bass", config_entry=entry)
+    entity = HtdEqNumber(client, "uid", "HTD", zone=2, control="bass", config_entry=entry)
     assert entity.entity_registry_enabled_default is False
 
 
 def test_eq_number_enabled_when_zone_in_filter():
     entry = _make_filter_entry(True, [1, 3])
     client = _make_client()
-    entity = HtdEqNumber(client, "uid", zone=3, control="bass", config_entry=entry)
+    entity = HtdEqNumber(client, "uid", "HTD", zone=3, control="bass", config_entry=entry)
     assert entity.entity_registry_enabled_default is True
 
 
@@ -88,7 +88,7 @@ def test_eq_balance_hidden_by_default_when_filter_off():
     # Balance is hidden by default even when filter is off
     entry = _make_filter_entry(False, [])
     client = _make_client()
-    entity = HtdEqNumber(client, "uid", zone=1, control="balance", config_entry=entry)
+    entity = HtdEqNumber(client, "uid", "HTD", zone=1, control="balance", config_entry=entry)
     assert entity.entity_registry_enabled_default is False
 
 
@@ -96,7 +96,7 @@ def test_eq_balance_disabled_when_zone_not_in_filter():
     # Zone filter takes priority (zone disabled → entity disabled)
     entry = _make_filter_entry(True, [1, 3])
     client = _make_client()
-    entity = HtdEqNumber(client, "uid", zone=2, control="balance", config_entry=entry)
+    entity = HtdEqNumber(client, "uid", "HTD", zone=2, control="balance", config_entry=entry)
     assert entity.entity_registry_enabled_default is False
 
 
@@ -105,19 +105,19 @@ def test_eq_balance_disabled_when_zone_not_in_filter():
 def test_dnd_enabled_when_filter_off():
     entry = _make_filter_entry(False, [])
     client = _make_client()
-    entity = HtdDndSwitch(client, "uid", zone=1, config_entry=entry)
+    entity = HtdDndSwitch(client, "uid", "HTD", zone=1, config_entry=entry)
     assert entity.entity_registry_enabled_default is True
 
 
 def test_dnd_enabled_when_zone_in_filter():
     entry = _make_filter_entry(True, [1, 4])
     client = _make_client()
-    entity = HtdDndSwitch(client, "uid", zone=1, config_entry=entry)
+    entity = HtdDndSwitch(client, "uid", "HTD", zone=1, config_entry=entry)
     assert entity.entity_registry_enabled_default is True
 
 
 def test_dnd_disabled_when_zone_not_in_filter():
     entry = _make_filter_entry(True, [1, 4])
     client = _make_client()
-    entity = HtdDndSwitch(client, "uid", zone=2, config_entry=entry)
+    entity = HtdDndSwitch(client, "uid", "HTD", zone=2, config_entry=entry)
     assert entity.entity_registry_enabled_default is False

@@ -49,7 +49,7 @@ def test_balance_disabled_by_default():
 
 def _make_client(kind_value="lync", zone_name=None):
     client = MagicMock()
-    client.model = {"kind": MagicMock(value=kind_value)}
+    client.model = {"kind": MagicMock(value=kind_value), "zones": 12}
     client.async_set_bass = AsyncMock()
     client.async_set_treble = AsyncMock()
     client.async_set_balance = AsyncMock()
@@ -64,7 +64,7 @@ def _make_config_entry(zone_names=None):
 
 
 def _make_entity(client, control, zone=1, zone_names=None):
-    return HtdEqNumber(client, "uid", zone=zone, control=control, config_entry=_make_config_entry(zone_names))
+    return HtdEqNumber(client, "uid", "HTD", zone=zone, control=control, config_entry=_make_config_entry(zone_names))
 
 
 # --- Name resolution ---

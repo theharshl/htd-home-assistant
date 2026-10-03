@@ -74,6 +74,24 @@ To let the integration's name take effect, clear the manual override:
 3. Click the name field and delete the custom value (leave it blank / reset to default)
 4. Save — the entity will now use the name from the integration
 
+## Entity IDs
+
+Entity IDs are built from the **device name** and the **zone number** only — never from a zone's display name — so every entity belonging to a zone shares one prefix:
+
+| Entity | Lync 12 named `HTD Lync 12` | MCA-66 named `MCA66` (the default) |
+|---|---|---|
+| Zone | `media_player.htd_lync_12_zone_01` | `media_player.mca66_zone_1` |
+| Bass | `number.htd_lync_12_zone_01_bass` | `number.mca66_zone_1_bass` |
+| Treble | `number.htd_lync_12_zone_01_treble` | `number.mca66_zone_1_treble` |
+| Balance | `number.htd_lync_12_zone_01_balance` | `number.mca66_zone_1_balance` |
+| DND (Lync only) | `switch.htd_lync_12_zone_01_dnd` | — |
+
+The device-name part is your device name as it was when the entity was created (`HTD Lync 12` → `htd_lync_12`). Zone numbers are two digits on devices with more than 10 zones and one digit otherwise.
+
+**Home Assistant never renames an entity ID after it is created.** Renaming a zone or the device updates the names shown in the UI, but entity IDs stay exactly as they were — this is Home Assistant's design, so that a rename cannot silently break automations that reference the old ID. To change an ID yourself, open the entity (**Settings → Devices & Services → Entities**), click the settings cog, and edit **Entity ID**; then update any automations, scripts and dashboards that use the old one.
+
+**Existing installs keep their current entity IDs.** Earlier versions named the EQ sliders and DND switches after the zone's display name at the time they were first created (for example `number.kitchen_bass`, `switch.kitchen_dnd`). Those entities are left untouched on upgrade, so nothing you have already built breaks. Only entities created from now on — a new install, or a zone's entities being created for the first time — get the scheme above. If you want an existing install to match it, rename the IDs manually as described above.
+
 ## Zone Filtering (Hide Unused Zones)
 
 During initial setup or reconfigure, you can choose to filter zones so that only the zones you actually use appear in Home Assistant.

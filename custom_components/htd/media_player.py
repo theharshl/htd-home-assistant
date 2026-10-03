@@ -1,7 +1,6 @@
 """Support for HTD"""
 
 import logging
-import re
 
 from homeassistant.components.media_player import MediaPlayerEntity
 from homeassistant.components.media_player.const import (
@@ -34,14 +33,7 @@ from .const import (
     CONF_CACHED_ZONE_NAMES,
     CONF_CACHED_SOURCE_NAMES,
 )
-from .entity import HtdEntity
-
-
-def make_alphanumeric(input_string):
-    temp = re.sub(r'[^a-zA-Z0-9]', '_', input_string)
-    return re.sub(r'_+', '_', temp).strip('_')
-
-get_media_player_entity_id = lambda name, zone_number, zone_fmt: f"media_player.{make_alphanumeric(name)}_zone_{zone_number:{zone_fmt}}".lower()
+from .entity import HtdEntity, get_zone_entity_id
 
 SUPPORT_HTD = (
     MediaPlayerEntityFeature.SELECT_SOURCE |
@@ -154,8 +146,12 @@ class HtdDevice(HtdEntity, MediaPlayerEntity, RestoreEntity):
         self.client = client
         self.sources = sources
         self.config_entry = config_entry
-        zone_fmt = f"02" if self.client.model["zones"] > 10 else "01"
-        self.entity_id = get_media_player_entity_id(device_name, zone, zone_fmt)
+        # Only a suggestion: Home Assistant uses it the first time this unique_id is
+        # registered. After that the registry's stored entity_id wins, so renaming the
+        # device or the zone never moves an existing entity.
+        self.entity_id = get_zone_entity_id(
+            "media_player", device_name, zone, self.client.model["zones"]
+        )
 
     def _live_zone(self):
         """media_player keeps its own cached copy, updated in _do_update, so that stays the

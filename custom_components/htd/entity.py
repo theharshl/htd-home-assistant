@@ -1,12 +1,34 @@
-"""Shared offline behavior for every HTD entity platform.
+"""Shared behavior for every HTD entity platform.
 
-Availability, assumed state, restore plumbing and the offline-command guard are identical
-across media_player, number and switch, so they live here rather than three times over.
+Availability, assumed state, restore plumbing, the offline-command guard and entity id
+construction are identical across media_player, number and switch, so they live here
+rather than three times over.
 """
+import re
+
 from homeassistant.exceptions import HomeAssistantError
 from htd_client.exceptions import HtdConnectionError
 
 from .const import CONF_RESTORE_LAST_STATE
+
+
+def make_alphanumeric(input_string):
+    temp = re.sub(r'[^a-zA-Z0-9]', '_', input_string)
+    return re.sub(r'_+', '_', temp).strip('_')
+
+
+def get_zone_entity_id(domain: str, device_name: str, zone: int, zone_count: int, suffix: str = None) -> str:
+    """The entity id every platform suggests for a zone, e.g. number.htd_lync_12_zone_01_bass.
+
+    Built only from the device name and the zone number, never the zone's display name, so
+    every entity of a zone shares one prefix and two zones can never collide. Zone numbers
+    are zero-padded to two digits on controllers with more than ten zones.
+    """
+    zone_fmt = "02" if zone_count > 10 else "01"
+    object_id = f"{make_alphanumeric(device_name)}_zone_{zone:{zone_fmt}}"
+    if suffix:
+        object_id = f"{object_id}_{suffix}"
+    return f"{domain}.{object_id}".lower()
 
 
 class HtdEntity:
